@@ -10,12 +10,12 @@ import { UsersModule } from "../users/users.module";
 @Module({
   imports: [
     UsersModule,
-    PassportModule,
+    PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get("JWT_SECRET"),
+        secret: config.get("JWT_SECRET") || "dev-jwt-secret",
         signOptions: {
           expiresIn: config.get("JWT_EXPIRES_IN", "15m"),
         },
