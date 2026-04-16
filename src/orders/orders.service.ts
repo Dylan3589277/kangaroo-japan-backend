@@ -114,6 +114,44 @@ export class OrdersService {
   }
 
   /**
+   * Find order by ID and user ID (used by payments service)
+   */
+  async findOneByIdAndUser(id: string, userId: string): Promise<Order | null> {
+    return this.ordersRepository.findOne({
+      where: { id, userId },
+      relations: ['items', 'address'],
+    });
+  }
+
+  /**
+   * Update order payment status
+   */
+  async updatePaymentStatus(
+    orderId: string,
+    status: 'pending' | 'paid' | 'processing' | 'cancelled' | 'refunded',
+    paymentMethod?: string,
+    paymentId?: string,
+  ): Promise<Order> {
+    const order = await this.ordersRepository.findOne({ where: { id: orderId } });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    order.status = status as OrderStatus;
+    if (paymentMethod) {
+      order.paymentMethod = paymentMethod;
+    }
+    if (paymentId) {
+      order.paymentId = paymentId;
+    }
+    if (status === 'paid') {
+      order.paidAt = new Date();
+    }
+
+    return this.ordersRepository.save(order);
+  }
+
+  /**
    * Create a new order from cart items
    */
   async create(userId: string, dto: CreateOrderDto): Promise<Order> {

@@ -20,6 +20,8 @@ import { CartItem } from './cart/cart-item.entity';
 import { OrdersModule } from './orders/orders.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { CategoriesModule } from './categories/categories.module';
+import { PaymentsModule } from './payments/payments.module';
+import { Payment } from './payments/payment.entity';
 
 @Module({
   imports: [
@@ -48,6 +50,7 @@ import { CategoriesModule } from './categories/categories.module';
           OrderItem,
           Cart,
           CartItem,
+          Payment,
         ],
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get('database.logging'),
@@ -63,6 +66,7 @@ import { CategoriesModule } from './categories/categories.module';
     OrdersModule,
     AddressesModule,
     CategoriesModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
