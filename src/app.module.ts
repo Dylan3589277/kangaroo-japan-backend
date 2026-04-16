@@ -8,6 +8,7 @@ import { User } from "./users/user.entity";
 import { Address } from "./users/address.entity";
 import { Product } from "./products/product.entity";
 import { Category } from "./products/category.entity";
+import { PriceHistory } from "./products/price-history.entity";
 import { Order } from "./orders/order.entity";
 import { OrderItem } from "./orders/order-item.entity";
 import { AuthModule } from "./auth/auth.module";
@@ -16,6 +17,7 @@ import { ProductsModule } from "./products/products.module";
 import { CartModule } from "./cart/cart.module";
 import { OrdersModule } from "./orders/orders.module";
 import { AddressesModule } from "./addresses/addresses.module";
+import { CategoriesModule } from "./categories/categories.module";
 
 @Module({
   imports: [
@@ -34,7 +36,7 @@ import { AddressesModule } from "./addresses/addresses.module";
         username: config.get("database.username"),
         password: config.get("database.password"),
         database: config.get("database.database"),
-        entities: [User, Address, Product, Category, Order, OrderItem],
+        entities: [User, Address, Product, Category, PriceHistory, Order, OrderItem],
         synchronize: config.get<boolean>("database.synchronize"),
         logging: config.get("database.logging"),
         migrationsRun: config.get<boolean>("database.migrationsRun"),
@@ -48,6 +50,7 @@ import { AddressesModule } from "./addresses/addresses.module";
     CartModule,
     OrdersModule,
     AddressesModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

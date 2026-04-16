@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from "typeorm";
 import { Category } from "./category.entity";
 
@@ -16,17 +17,31 @@ export enum Platform {
   YAHOO = "yahoo",
 }
 
+export enum ProductStatus {
+  ACTIVE = "active",
+  TRADING = "trading",
+  SOLD_OUT = "sold_out",
+  UNAVAILABLE = "unavailable",
+}
+
 @Entity("products")
+@Index("idx_products_platform", ["platform"])
+@Index("idx_products_category", ["categoryId"])
+@Index("idx_products_status", ["status"])
 export class Product {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column()
+  @Column({ type: "varchar", length: 50 })
   platform: Platform;
 
   @Column({ name: "platform_product_id" })
   platformProductId: string;
 
+  @Column({ type: "text", nullable: true, name: "platform_url" })
+  platformUrl: string;
+
+  // 多语言标题
   @Column({ type: "text", nullable: true, name: "title_zh" })
   titleZh: string;
 
@@ -36,6 +51,7 @@ export class Product {
   @Column({ type: "text", nullable: true, name: "title_ja" })
   titleJa: string;
 
+  // 多语言描述
   @Column({ type: "text", nullable: true, name: "description_zh" })
   descriptionZh: string;
 
@@ -45,39 +61,76 @@ export class Product {
   @Column({ type: "text", nullable: true, name: "description_ja" })
   descriptionJa: string;
 
-  @Column({ type: "decimal", precision: 10, scale: 2, name: "price_jpy" })
+  // 价格 (JPY 基准)
+  @Column({ type: "decimal", precision: 12, scale: 2, name: "price_jpy" })
   priceJpy: number;
 
-  @Column({ type: "decimal", precision: 10, scale: 2, name: "price_cny", nullable: true })
+  @Column({ type: "decimal", precision: 12, scale: 2, nullable: true, name: "price_cny" })
   priceCny: number;
 
-  @Column({ type: "decimal", precision: 10, scale: 2, name: "price_usd", nullable: true })
+  @Column({ type: "decimal", precision: 12, scale: 2, nullable: true, name: "price_usd" })
   priceUsd: number;
+
+  @Column({ type: "decimal", precision: 10, scale: 6, nullable: true, name: "exchange_rate_used" })
+  exchangeRateUsed: number;
 
   @Column({ length: 3, default: "JPY" })
   currency: string;
 
-  @Column({ type: "jsonb", nullable: true })
-  images: string[];
-
-  @Column({ name: "category_id", nullable: true })
+  @Column({ type: "uuid", nullable: true, name: "category_id" })
   categoryId: string;
 
   @ManyToOne(() => Category, { nullable: true })
   @JoinColumn({ name: "category_id" })
   category: Category;
 
-  @Column({ type: "decimal", precision: 3, scale: 1, nullable: true })
+  // 图片
+  @Column({ type: "jsonb", nullable: true })
+  images: string[];
+
+  @Column({ type: "int", default: 0, name: "images_count" })
+  imagesCount: number;
+
+  // 状态
+  @Column({
+    type: "varchar",
+    length: 50,
+    default: ProductStatus.ACTIVE,
+  })
+  status: ProductStatus;
+
+  // 评分
+  @Column({ type: "decimal", precision: 3, scale: 2, nullable: true })
   rating: number;
 
-  @Column({ name: "review_count", nullable: true })
+  @Column({ type: "int", default: 0, name: "review_count" })
   reviewCount: number;
 
-  @Column({ name: "sales_count", nullable: true })
+  @Column({ type: "int", default: 0, name: "sales_count" })
   salesCount: number;
 
-  @Column({ type: "text", nullable: true })
-  url: string;
+  // 规格
+  @Column({ type: "jsonb", nullable: true })
+  specifications: Record<string, any>;
+
+  // 卖家
+  @Column({ nullable: true, name: "seller_name" })
+  sellerName: string;
+
+  @Column({ nullable: true, name: "seller_id" })
+  sellerId: string;
+
+  // SEO
+  @Column({ nullable: true })
+  slug: string;
+
+  // 原始数据
+  @Column({ type: "jsonb", nullable: true, name: "raw_data" })
+  rawData: Record<string, any>;
+
+  // 同步时间
+  @Column({ nullable: true, name: "last_synced_at" })
+  lastSyncedAt: Date;
 
   @CreateDateColumn({ name: "created_at" })
   createdAt: Date;
