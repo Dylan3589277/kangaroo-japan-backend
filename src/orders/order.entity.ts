@@ -3,80 +3,127 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
   ManyToOne,
   JoinColumn,
   OneToMany,
-} from "typeorm";
-import { User } from "../users/user.entity";
-import { Address } from "../users/address.entity";
-import { OrderItem } from "./order-item.entity";
+} from 'typeorm';
+import { User } from '../users/user.entity';
+import { Address } from '../users/address.entity';
+import { OrderItem } from './order-item.entity';
 
 export enum OrderStatus {
-  PENDING = "pending",
-  PAID = "paid",
-  SHIPPED = "shipped",
-  DELIVERED = "delivered",
-  CANCELLED = "cancelled",
+  PENDING = 'pending',         // 待支付
+  PAID = 'paid',               // 已支付
+  PROCESSING = 'processing',   // 处理中
+  PURCHASED = 'purchased',     // 已代购
+  SHIPPED = 'shipped',         // 已发货
+  IN_TRANSIT = 'in_transit',   // 运输中
+  DELIVERED = 'delivered',     // 已送达
+  CANCELLED = 'cancelled',     // 已取消
+  REFUNDED = 'refunded',       // 已退款
 }
 
-@Entity("orders")
+@Entity('orders')
 export class Order {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: "order_no", unique: true, length: 50 })
+  @Column({ name: 'order_no', unique: true, length: 50 })
   orderNo: string;
 
-  @Column({ name: "user_id" })
+  @Column({ name: 'user_id' })
   userId: string;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: "user_id" })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
+  @Column({ name: 'address_id' })
+  addressId: string;
+
+  @ManyToOne(() => Address)
+  @JoinColumn({ name: 'address_id' })
+  address: Address;
+
   @Column({
-    type: "enum",
+    type: 'enum',
     enum: OrderStatus,
     default: OrderStatus.PENDING,
   })
   status: OrderStatus;
 
-  @Column({
-    name: "total_amount",
-    type: "decimal",
-    precision: 10,
-    scale: 2,
-  })
+  // 金额明细
+  @Column({ name: 'subtotal_jpy', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  subtotalJpy: number;
+
+  @Column({ name: 'subtotal_cny', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  subtotalCny: number;
+
+  @Column({ name: 'subtotal_usd', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  subtotalUsd: number;
+
+  @Column({ name: 'shipping_fee_jpy', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  shippingFeeJpy: number;
+
+  @Column({ name: 'shipping_fee_cny', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  shippingFeeCny: number;
+
+  @Column({ name: 'service_fee_jpy', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  serviceFeeJpy: number;
+
+  @Column({ name: 'service_fee_cny', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  serviceFeeCny: number;
+
+  @Column({ name: 'coupon_discount_cny', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  couponDiscountCny: number;
+
+  // 总计（用户实际支付币种）
+  @Column({ name: 'total_amount', type: 'decimal', precision: 12, scale: 2 })
   totalAmount: number;
 
-  @Column({ length: 3, default: "JPY" })
-  currency: string;
+  @Column({ name: 'total_currency', length: 3, default: 'CNY' })
+  totalCurrency: string;
 
-  @Column({
-    name: "shipping_fee",
-    type: "decimal",
-    precision: 10,
-    scale: 2,
-    default: 0,
-  })
-  shippingFee: number;
-
-  @Column({ name: "address_id", nullable: true })
-  addressId: string;
-
-  @ManyToOne(() => Address, { nullable: true })
-  @JoinColumn({ name: "address_id" })
-  address: Address;
-
-  @Column({ name: "payment_method", nullable: true })
+  // 支付信息
+  @Column({ name: 'payment_method', length: 50, nullable: true })
   paymentMethod: string;
 
-  @Column({ name: "paid_at", type: "timestamp", nullable: true })
+  @Column({ name: 'payment_id', length: 255, nullable: true })
+  paymentId: string;
+
+  @Column({ name: 'paid_at', type: 'timestamp', nullable: true })
   paidAt: Date;
 
-  @CreateDateColumn({ name: "created_at" })
+  @Column({ name: 'exchange_rate_used', type: 'decimal', precision: 10, scale: 6, nullable: true })
+  exchangeRateUsed: number;
+
+  // 买家留言
+  @Column({ name: 'buyer_message', type: 'text', nullable: true })
+  buyerMessage: string;
+
+  // 物流信息
+  @Column({ name: 'tracking_number', length: 255, nullable: true })
+  trackingNumber: string;
+
+  @Column({ name: 'shipping_carrier', length: 100, nullable: true })
+  shippingCarrier: string; // EMS, DHL, FedEx
+
+  @Column({ name: 'shipped_at', type: 'timestamp', nullable: true })
+  shippedAt: Date;
+
+  @Column({ name: 'delivered_at', type: 'timestamp', nullable: true })
+  deliveredAt: Date;
+
+  @Column({ name: 'estimated_delivery', type: 'date', nullable: true })
+  estimatedDelivery: Date;
+
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @OneToMany(() => OrderItem, (item) => item.order)
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+
+  @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items: OrderItem[];
 }
