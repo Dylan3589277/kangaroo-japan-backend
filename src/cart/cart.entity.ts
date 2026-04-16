@@ -3,39 +3,67 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  ManyToOne,
-  JoinColumn,
-  Unique,
-} from "typeorm";
-import { User } from "../users/user.entity";
-import { Product } from "../products/product.entity";
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
+import { CartItem } from './cart-item.entity';
 
-@Entity("cart_items")
-@Unique(["userId", "productId"])
-export class CartItem {
-  @PrimaryGeneratedColumn("uuid")
+@Entity('carts')
+export class Cart {
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: "user_id" })
+  @Column({ name: 'user_id', unique: true })
   userId: string;
 
-  @ManyToOne(() => User)
-  @JoinColumn({ name: "user_id" })
-  user: User;
+  @Column({ type: 'int', default: 0, name: 'total_items' })
+  totalItems: number;
 
-  @Column({ name: "product_id" })
-  productId: string;
+  @Column({
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    name: 'subtotal_jpy',
+  })
+  subtotalJpy: number;
 
-  @ManyToOne(() => Product)
-  @JoinColumn({ name: "product_id" })
-  product: Product;
+  @Column({
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    name: 'subtotal_cny',
+  })
+  subtotalCny: number;
 
-  @Column({ default: 1 })
-  quantity: number;
+  @Column({
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+    name: 'subtotal_usd',
+  })
+  subtotalUsd: number;
 
-  @CreateDateColumn({ name: "created_at" })
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 6,
+    nullable: true,
+    name: 'exchange_rate_used',
+  })
+  exchangeRateUsed: number;
+
+  @Column({ length: 3, default: 'CNY', name: 'preferred_currency' })
+  preferredCurrency: string;
+
+  @OneToMany(() => CartItem, (item) => item.cart, { cascade: true })
+  items: CartItem[];
+
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @Column({ name: "updated_at" })
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
