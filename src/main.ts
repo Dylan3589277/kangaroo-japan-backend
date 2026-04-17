@@ -1,3 +1,9 @@
+// Polyfill for crypto.randomUUID in CommonJS context
+if (typeof globalThis.crypto === 'undefined' || !globalThis.crypto.randomUUID) {
+  // @ts-ignore
+  globalThis.crypto = require('crypto');
+}
+
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import cookieParser from "cookie-parser";
