@@ -18,9 +18,9 @@ export enum CartItemStatus {
 }
 
 @Entity('cart_items')
-@Index('idx_cart_items_cart')
-@Index('idx_cart_items_product')
-@Index('idx_cart_items_seller')
+@Index('idx_cart_items_cart', ['cartId'])
+@Index('idx_cart_items_product', ['productId'])
+@Index('idx_cart_items_seller', ['sellerId'])
 export class CartItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;

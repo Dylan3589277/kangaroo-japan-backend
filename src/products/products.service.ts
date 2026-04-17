@@ -59,8 +59,8 @@ export class ProductsService {
       status,
     } = query;
 
+    // 注意：暂不使用 leftJoin，避免 TypeORM getMany() bug
     const qb = this.productsRepository.createQueryBuilder("product");
-    qb.leftJoinAndSelect("product.category", "category");
 
     // 平台过滤
     if (platform) {
@@ -85,15 +85,17 @@ export class ProductsService {
     const statusFilter = status || ProductStatus.ACTIVE;
     qb.andWhere("product.status = :status", { status: statusFilter });
 
-    // 排序
+    // 排序 - 安全处理，防止 TypeORM 排序bug
     const [sortField, sortOrder] = sort.split("_");
-    const orderMap: Record<string, string> = {
+    const allowedSortFields: Record<string, string> = {
       createdAt: "product.created_at",
       price: "product.price_jpy",
       rating: "product.rating",
       sales: "product.sales_count",
     };
-    qb.orderBy(orderMap[sortField] || "product.created_at", sortOrder?.toUpperCase() as "ASC" | "DESC" || "DESC");
+    const safeSortField = allowedSortFields[sortField] || "product.created_at";
+    const safeSortOrder = sortOrder?.toUpperCase() === "ASC" ? "ASC" : "DESC";
+    qb.orderBy(safeSortField, safeSortOrder);
 
     // 分页
     const total = await qb.getCount();

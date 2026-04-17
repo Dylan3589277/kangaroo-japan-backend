@@ -41,8 +41,7 @@ async function bootstrap() {
     }),
   );
 
-  // API prefix
-  app.setGlobalPrefix("api");
+  // API prefix removed - controllers already include api/v1/ path
 
   const port = process.env.PORT || 3000;
   await app.listen(port);

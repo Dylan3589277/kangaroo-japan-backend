@@ -22,6 +22,7 @@ import { AddressesModule } from './addresses/addresses.module';
 import { CategoriesModule } from './categories/categories.module';
 import { PaymentsModule } from './payments/payments.module';
 import { Payment } from './payments/payment.entity';
+import { IntegrationsModule } from './integrations/integrations.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { Payment } from './payments/payment.entity';
     AddressesModule,
     CategoriesModule,
     PaymentsModule,
+    IntegrationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
