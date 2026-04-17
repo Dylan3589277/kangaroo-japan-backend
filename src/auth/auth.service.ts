@@ -8,7 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { UsersService } from "../users/users.service";
 import { User } from "../users/user.entity";
 import * as bcrypt from "bcrypt";
-// uuid replaced with crypto.randomUUID
+import { v4 as uuidv4 } from 'uuid';
 import * as crypto from "crypto";
 
 const REFRESH_TOKEN_COOKIE_NAME = "refresh_token";
@@ -130,7 +130,7 @@ export class AuthService {
       expiresIn: this.configService.get("JWT_EXPIRES_IN", "15m"),
     });
 
-    const refreshToken = crypto.randomUUID();
+    const refreshToken = uuidv4();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
