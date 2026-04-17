@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
+// uuid replaced with crypto.randomUUID
 import { Payment, PaymentStatus, PaymentMethod, PaymentProvider, Currency } from './payment.entity';
 import { StripeService } from './stripe.service';
 import { PingxxService } from './pingxx.service';
@@ -31,7 +31,7 @@ export class PaymentsService {
    */
   private generatePaymentNo(): string {
     const timestamp = Date.now().toString(36).toUpperCase();
-    const random = uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase();
+    const random = crypto.randomUUID().replace(/-/g, '').substring(0, 8).toUpperCase();
     return `PAY${timestamp}${random}`;
   }
 
