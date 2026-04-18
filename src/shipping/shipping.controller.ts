@@ -17,7 +17,7 @@ export class ShippingController {
    * - weight: number (kg, 必填)
    * - country: string (可选，默认 CN)
    * 
-   * Example: GET /api/v1/shipping/estimate?weight=2.5
+   * Example: GET /api/v1/shipping/estimate?weight=2.5&country=CN
    */
   @Get('estimate')
   async getEstimate(
@@ -36,7 +36,6 @@ export class ShippingController {
       };
     }
     
-    // 最大重量限制 30kg
     if (weightKg > 30) {
       return {
         success: false,
@@ -49,14 +48,15 @@ export class ShippingController {
     
     const options = await this.shippingService.getShippingOptions({
       weightKg,
-      destinationCountry: country || 'CN',
+      country: country || 'CN',
     });
     
-    // 转换人民币价格
-    const optionsWithCny = await Promise.all(
+    // 转换多币种价格
+    const optionsWithPrices = await Promise.all(
       options.map(async (opt) => ({
         ...opt,
         priceCny: await this.shippingService.convertToCny(opt.priceJpy),
+        priceUsd: await this.shippingService.convertToUsd(opt.priceJpy),
         estimatedDaysText: `${opt.estimatedDays.min}-${opt.estimatedDays.max}天`,
       }))
     );
@@ -66,7 +66,7 @@ export class ShippingController {
       data: {
         weightKg,
         destination: country || '中国',
-        options: optionsWithCny,
+        options: optionsWithPrices,
       },
     };
   }
@@ -94,12 +94,12 @@ export class ShippingController {
     
     const cheapest = await this.shippingService.getCheapestOption({
       weightKg,
-      destinationCountry: country || 'CN',
+      country: country || 'CN',
     });
     
     const fastest = await this.shippingService.getFastestOption({
       weightKg,
-      destinationCountry: country || 'CN',
+      country: country || 'CN',
     });
     
     return {
@@ -110,14 +110,29 @@ export class ShippingController {
         cheapest: cheapest ? {
           ...cheapest,
           priceCny: await this.shippingService.convertToCny(cheapest.priceJpy),
+          priceUsd: await this.shippingService.convertToUsd(cheapest.priceJpy),
           estimatedDaysText: `${cheapest.estimatedDays.min}-${cheapest.estimatedDays.max}天`,
         } : null,
         fastest: fastest ? {
           ...fastest,
           priceCny: await this.shippingService.convertToCny(fastest.priceJpy),
+          priceUsd: await this.shippingService.convertToUsd(fastest.priceJpy),
           estimatedDaysText: `${fastest.estimatedDays.min}-${fastest.estimatedDays.max}天`,
         } : null,
       },
+    };
+  }
+  
+  /**
+   * GET /api/v1/shipping/countries
+   * 获取支持的国家列表
+   */
+  @Get('countries')
+  async getCountries() {
+    const countries = await this.shippingService.getSupportedCountries();
+    return {
+      success: true,
+      data: countries,
     };
   }
 }
