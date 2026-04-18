@@ -23,6 +23,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { PaymentsModule } from './payments/payments.module';
 import { Payment } from './payments/payment.entity';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { ShippingModule } from './shipping/shipping.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
     CategoriesModule,
     PaymentsModule,
     IntegrationsModule,
+    ShippingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
