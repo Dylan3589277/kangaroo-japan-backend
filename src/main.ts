@@ -21,15 +21,32 @@ async function bootstrap() {
   if (process.env.RUN_SEED === 'true') {
     console.log('🌱 Running database seeds...');
     try {
-      const dataSource = new DataSource({
+      // Run migrations first
+      console.log('📦 Running migrations...');
+      const migrateDataSource = new DataSource({
+        type: 'postgres',
+        url: process.env.DATABASE_URL,
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+        synchronize: false,
+        migrationsRun: true,
+      });
+      await migrateDataSource.initialize();
+      await migrateDataSource.runMigrations();
+      console.log('✅ Migrations completed!');
+      await migrateDataSource.destroy();
+
+      // Now run seeds
+      console.log('🌱 Inserting seed data...');
+      const seedDataSource = new DataSource({
         type: 'postgres',
         url: process.env.DATABASE_URL,
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: false,
       });
-      await dataSource.initialize();
-      await runAllSeeds(dataSource);
-      await dataSource.destroy();
+      await seedDataSource.initialize();
+      await runAllSeeds(seedDataSource);
+      await seedDataSource.destroy();
       console.log('✅ Seeds completed successfully!');
     } catch (error) {
       console.error('❌ Seed failed:', error);
