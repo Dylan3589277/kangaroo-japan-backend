@@ -16,16 +16,39 @@ export async function runAllSeeds(dataSource: DataSource): Promise<void> {
 
 // 如果直接运行此文件
 if (require.main === module) {
-  const dataSource = new DataSource({
+  // 支持 DATABASE_URL 或分开的 DB_* 环境变量
+  const dbUrl = process.env.DATABASE_URL;
+  let config: any = {
     type: 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    username: process.env.DB_USERNAME || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-    database: process.env.DB_DATABASE || 'kangaroo_japan',
     entities: [__dirname + '/../../**/*.entity{.ts,.js}'],
     synchronize: false,
-  });
+  };
+  
+  if (dbUrl) {
+    // Parse postgresql://user:password@host:port/database
+    const match = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
+    if (match) {
+      config = {
+        ...config,
+        username: match[1],
+        password: match[2],
+        host: match[3],
+        port: parseInt(match[4], 10),
+        database: match[5],
+      };
+    }
+  } else {
+    config = {
+      ...config,
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432', 10),
+      username: process.env.DB_USERNAME || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+      database: process.env.DB_DATABASE || 'kangaroo_japan',
+    };
+  }
+
+  const dataSource = new DataSource(config);
 
   dataSource
     .initialize()

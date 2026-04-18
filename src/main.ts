@@ -1,6 +1,6 @@
 // Polyfill for crypto.randomUUID in CommonJS context
 if (typeof globalThis.crypto === 'undefined' || !globalThis.crypto.randomUUID) {
-  // @ts-expect-error: Polyfill for older Node versions
+  // @ts-ignore
   globalThis.crypto = require('crypto');
 }
 
