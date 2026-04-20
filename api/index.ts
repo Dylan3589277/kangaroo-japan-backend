@@ -3,7 +3,7 @@ import serverlessHttp from 'serverless-http';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import express from 'express';
+import express, { Application } from 'express';
 
 let cachedHandler: any;
 let initPromise: Promise<any>;
@@ -13,14 +13,12 @@ async function initHandler() {
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    const expressApp = express();
-
-    const app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp), {
+    const app = await NestFactory.create(AppModule, new ExpressAdapter(express()), {
       rawBody: true,
     });
 
-    expressApp.use(express.json());
-    expressApp.use(express.urlencoded({ extended: true }));
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
 
     app.enableCors({
       origin: '*',
@@ -30,8 +28,9 @@ async function initHandler() {
     });
 
     await app.init();
-
-    cachedHandler = serverlessHttp(app);
+    
+    const expressApp = app.getHttpAdapter().getInstance() as Application;
+    cachedHandler = serverlessHttp(expressApp);
     return cachedHandler;
   })();
 
