@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { databaseConfig } from './config/database.config';
+import { paymentConfig } from './config/payment.config';
 import { User } from './users/user.entity';
 import { Address } from './users/address.entity';
 import { Product } from './products/product.entity';
@@ -30,7 +31,7 @@ import { ShippingModule } from './shipping/shipping.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [databaseConfig],
+      load: [databaseConfig, paymentConfig],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
