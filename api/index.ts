@@ -1,14 +1,15 @@
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const serverless = require('serverless-http');
 import { AppModule } from '../src/app.module';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import serverless from 'serverless-http';
-import express from 'express';
+import express, { Request, Response } from 'express';
 
 const expressApp = express();
-let handler: serverless.ServerlessHandler | undefined;
+let serverlessHandler: any;
 
-async function createHandler() {
-  if (!handler) {
+async function createServerlessHandler() {
+  if (!serverlessHandler) {
     const app = await NestFactory.create(
       AppModule,
       new ExpressAdapter(expressApp),
@@ -22,12 +23,12 @@ async function createHandler() {
     });
 
     await app.init();
-    handler = serverless(app) as serverless.ServerlessHandler;
+    serverlessHandler = serverless(app);
   }
-  return handler;
+  return serverlessHandler;
 }
 
-export async function handler(req: express.Request, res: express.Response) {
-  const h = await createHandler();
+export async function handler(req: Request, res: Response) {
+  const h = await createServerlessHandler();
   return h(req, res);
 }
