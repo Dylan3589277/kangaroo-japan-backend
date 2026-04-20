@@ -1,6 +1,6 @@
 {
   "buildCommand": "nest build",
-  "outputDirectory": ".vercel/output",
+  "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": null
 }
