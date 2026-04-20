@@ -1,4 +1,4 @@
-// serverless handler for NestJS on Vercel
+// Simple serverless wrapper for NestJS on Vercel
 const serverless = require('serverless-http');
 const express = require('express');
 const { NestFactory } = require('@nestjs/core');
@@ -9,13 +9,11 @@ const expressApp = express();
 let nestApp = null;
 let handler = null;
 
-async function createNestApp() {
+async function initNestApp() {
   if (nestApp) return nestApp;
   
   try {
-    console.log('Creating NestJS app...');
     nestApp = await NestFactory.create(AppModule, new ExpressAdapter(expressApp));
-    console.log('NestJS app created');
     
     nestApp.enableCors({
       origin: '*',
@@ -23,26 +21,47 @@ async function createNestApp() {
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
     });
-    console.log('CORS enabled');
 
     await nestApp.init();
-    console.log('NestJS app initialized');
     return nestApp;
   } catch (error) {
-    console.error('Error creating NestJS app:', error);
+    console.error('NestJS init error:', error.message);
+    console.error('Stack:', error.stack);
     throw error;
   }
 }
 
 async function getHandler() {
   if (!handler) {
-    await createNestApp();
+    await initNestApp();
     handler = serverless(expressApp);
   }
   return handler;
 }
 
+// Health check endpoint
+expressApp.get('/api/health', async (req, res) => {
+  try {
+    await initNestApp();
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'error', 
+      message: error.message,
+      code: error.code,
+      errno: error.errno,
+      syscall: error.syscall,
+      hostname: error.hostname
+    });
+  }
+});
+
 module.exports = async (event, context) => {
+  // Warmup request
+  if (event.source === 'serverless-plugin-warmup') {
+    return { statusCode: 200, body: JSON.stringify({ message: 'Warmup ok' }) };
+  }
+  
   try {
     const h = await getHandler();
     return h(event, context);
@@ -51,9 +70,10 @@ module.exports = async (event, context) => {
     return {
       statusCode: 500,
       body: JSON.stringify({ 
-        error: 'Internal server error',
+        error: 'Function error',
         message: error.message,
-        stack: error.stack
+        stack: error.stack,
+        code: error.code
       })
     };
   }
