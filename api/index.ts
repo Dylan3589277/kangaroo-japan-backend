@@ -2,12 +2,12 @@
 const serverless = require('serverless-http');
 const express = require('express');
 const { NestFactory } = require('@nestjs/core');
-const { AppModule } = require('../src/app.module');
+const { AppModule } = require('../dist/app.module');
 const { ExpressAdapter } = require('@nestjs/platform-express');
 const expressApp = express();
 
 async function createNestApp() {
-  const app = NestFactory.create(AppModule, new ExpressAdapter(expressApp));
+  const app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp));
   
   app.enableCors({
     origin: '*',

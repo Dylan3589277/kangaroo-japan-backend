@@ -1,6 +1,5 @@
 {
   "buildCommand": "npx @nestjs/cli build",
-  "outputDirectory": "dist",
   "installCommand": "npm install --ignore-scripts",
   "framework": null
 }
