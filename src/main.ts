@@ -50,6 +50,8 @@ async function bootstrap() {
     }),
   );
 
+    app.setGlobalPrefix('api/v1');
+  
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`🚀 Kangaroo Japan Backend running on http://localhost:${port}`);
