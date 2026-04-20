@@ -39,7 +39,7 @@ export class PaymentsController {
     @Req() req: Request,
     @Body() dto: CreatePaymentIntentDto,
   ) {
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       throw new UnauthorizedException();
     }
@@ -68,7 +68,7 @@ export class PaymentsController {
     @Param('id') paymentId: string,
     @Body() body: { payment_method_id?: string },
   ) {
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       throw new UnauthorizedException();
     }
@@ -98,7 +98,7 @@ export class PaymentsController {
     @Req() req: Request,
     @Param('id') paymentId: string,
   ) {
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       throw new UnauthorizedException();
     }
@@ -123,7 +123,7 @@ export class PaymentsController {
     @Req() req: Request,
     @Param('id') paymentId: string,
   ) {
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       throw new UnauthorizedException();
     }
@@ -166,8 +166,16 @@ export class PaymentsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Ping++ 支付回调' })
   @ApiResponse({ status: 200, description: '处理成功' })
-  async pingxxWebhook(@Body() body: any) {
-    await this.paymentsService.handlePingxxWebhook(body);
+  async pingxxWebhook(
+    @Req() req: Request,
+    @Headers('x-pingplusplus-signature') signature: string,
+    @Body() body: unknown,
+  ) {
+    await this.paymentsService.handlePingxxWebhook(
+      req,
+      signature,
+      body,
+    );
 
     return { received: true };
   }
@@ -186,7 +194,7 @@ export class PaymentsController {
     @Param('id') paymentId: string,
     @Body() body: { amount?: number; reason?: string },
   ) {
-    const userId = (req as any).user?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       throw new UnauthorizedException();
     }

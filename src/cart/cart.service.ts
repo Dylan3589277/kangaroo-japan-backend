@@ -5,12 +5,15 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Cart } from './cart.entity';
 import { CartItem, CartItemStatus } from './cart-item.entity';
 import { Product } from '../products/product.entity';
 
 @Injectable()
 export class CartService {
+  private readonly jpyToCny: number;
+
   constructor(
     @InjectRepository(Cart)
     private cartRepository: Repository<Cart>,
@@ -18,7 +21,10 @@ export class CartService {
     private cartItemRepository: Repository<CartItem>,
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.jpyToCny = this.configService.get<number>('exchange.jpyToCny', 0.05);
+  }
 
   /**
    * Get or create a cart for the user
@@ -283,8 +289,8 @@ export class CartService {
       estimatedShippingJpy += baseShippingJpy;
     }
 
-    // Use stored exchange rate or fallback
-    const estimatedShippingCnyRate = 0.05; // TODO: fetch from exchange service
+    // Use configured exchange rate
+    const estimatedShippingCnyRate = this.jpyToCny;
     estimatedShippingCny = estimatedShippingJpy * estimatedShippingCnyRate;
 
     const totalJpy =

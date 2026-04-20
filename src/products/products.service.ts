@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, MoreThanOrEqual } from 'typeorm';
 import { Product, Platform, ProductStatus } from './product.entity';
 import { Category } from './category.entity';
 import { PriceHistory } from './price-history.entity';
@@ -233,7 +233,7 @@ export class ProductsService {
     const history = await this.priceHistoryRepository.find({
       where: {
         productId,
-        recordedAt: startDate,
+        recordedAt: MoreThanOrEqual(startDate),
       },
       order: { recordedAt: 'ASC' },
     });

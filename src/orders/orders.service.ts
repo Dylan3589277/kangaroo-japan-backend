@@ -5,13 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Order, OrderStatus } from './order.entity';
 import { OrderItem } from './order-item.entity';
 import { CartService } from '../cart/cart.service';
 import { Product } from '../products/product.entity';
 
-// Exchange rate fallback (should come from exchange service)
-const JPY_TO_CNY_RATE = 0.05;
+// Exchange rate from config (removed hardcoded constant)
 
 export interface CreateOrderDto {
   addressId: string;
@@ -29,6 +29,8 @@ export interface OrderQueryDto {
 
 @Injectable()
 export class OrdersService {
+  private readonly jpyToCny: number;
+
   constructor(
     @InjectRepository(Order)
     private ordersRepository: Repository<Order>,
@@ -37,7 +39,10 @@ export class OrdersService {
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
     private cartService: CartService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.jpyToCny = this.configService.get<number>('exchange.jpyToCny', 0.05);
+  }
 
   /**
    * Generate unique order number: DSJ + YYYYMMDD + 6-digit sequence
@@ -59,15 +64,15 @@ export class OrdersService {
   }
 
   /**
-   * Get exchange rate (fallback to JPY_TO_CNY_RATE)
+   * Get exchange rate using configured rates
    */
   private getExchangeRate(from: string, to: string): number {
     if (from === to) return 1;
-    if (from === 'JPY' && to === 'CNY') return JPY_TO_CNY_RATE;
-    if (from === 'CNY' && to === 'JPY') return 1 / JPY_TO_CNY_RATE;
+    if (from === 'JPY' && to === 'CNY') return this.jpyToCny;
+    if (from === 'CNY' && to === 'JPY') return 1 / this.jpyToCny;
     if (from === 'USD' && to === 'CNY') return 7.2;
     if (from === 'CNY' && to === 'USD') return 1 / 7.2;
-    if (from === 'JPY' && to === 'USD') return JPY_TO_CNY_RATE / 7.2;
+    if (from === 'JPY' && to === 'USD') return this.jpyToCny / 7.2;
     return 1;
   }
 
@@ -189,7 +194,7 @@ export class OrdersService {
     // Calculate subtotals
     for (const item of orderItems) {
       const unitJpy = Number(item.unitPriceJpy) || 0;
-      const unitCny = Number(item.unitPriceCny) || unitJpy * JPY_TO_CNY_RATE;
+      const unitCny = Number(item.unitPriceCny) || unitJpy * this.jpyToCny;
       const unitUsd = unitCny / 7.2;
       const qty = item.quantity || 1;
 
@@ -250,14 +255,14 @@ export class OrdersService {
       subtotalCny,
       subtotalUsd,
       shippingFeeJpy,
-      shippingFeeCny: shippingFeeJpy * JPY_TO_CNY_RATE,
+      shippingFeeCny: shippingFeeJpy * this.jpyToCny,
       serviceFeeJpy,
-      serviceFeeCny: serviceFeeJpy * JPY_TO_CNY_RATE,
+      serviceFeeCny: serviceFeeJpy * this.jpyToCny,
       couponDiscountCny,
       totalAmount,
       totalCurrency: currency,
       buyerMessage: dto.buyerMessage,
-      exchangeRateUsed: JPY_TO_CNY_RATE,
+      exchangeRateUsed: this.jpyToCny,
     });
 
     const savedOrder = await this.ordersRepository.save(order);
@@ -266,7 +271,7 @@ export class OrdersService {
     const orderItemsToSave = orderItems.map((item) => {
       const product = item.product as any;
       const unitJpy = Number(item.unitPriceJpy) || 0;
-      const unitCny = Number(item.unitPriceCny) || unitJpy * JPY_TO_CNY_RATE;
+      const unitCny = Number(item.unitPriceCny) || unitJpy * this.jpyToCny;
       const qty = item.quantity || 1;
 
       return this.orderItemsRepository.create({

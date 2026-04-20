@@ -4,7 +4,11 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
+import type { Request } from 'express';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
@@ -24,6 +28,7 @@ export class PaymentsService {
     private readonly stripeService: StripeService,
     private readonly pingxxService: PingxxService,
     private readonly ordersService: OrdersService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -346,10 +351,23 @@ export class PaymentsService {
   }
 
   /**
-   * Ping++ Webhook 处理
+   * Ping++ Webhook 处理（含 HMAC-SHA256 签名验证）
    */
-  async handlePingxxWebhook(payload: any): Promise<void> {
-    const { type, data, object } = payload;
+  async handlePingxxWebhook(req: Request, signature: string, payload: unknown): Promise<void> {
+    const webhookSecret = this.configService.get<string>('pingxx.webhookSecret') ?? '';
+    if (webhookSecret) {
+      const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+      const bodyStr = rawBody ? rawBody.toString('utf8') : JSON.stringify(payload);
+      const expected = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(bodyStr)
+        .digest('hex');
+      if (!crypto.timingSafeEqual(Buffer.from(signature ?? ''), Buffer.from(expected))) {
+        throw new UnauthorizedException('Invalid Ping++ webhook signature');
+      }
+    }
+
+    const { type, data, object } = payload as { type: string; data?: { object?: any }; object?: any };
 
     this.logger.log(`Ping++ Webhook: ${type}`);
 

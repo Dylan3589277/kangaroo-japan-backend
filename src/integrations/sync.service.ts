@@ -5,6 +5,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Product, Platform } from '../products/product.entity';
 import { RakutenService } from './rakuten.service';
 import { AmazonService } from './amazon.service';
@@ -31,6 +32,8 @@ export interface SyncStatus {
 @Injectable()
 export class SyncService {
   private readonly logger = new Logger(SyncService.name);
+  private readonly jpyToCny: number;
+  private readonly jpyToUsd: number;
 
   constructor(
     @InjectRepository(Product)
@@ -39,7 +42,11 @@ export class SyncService {
     private amazonService: AmazonService,
     private yahooService: YahooService,
     private mercariService: MercariService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.jpyToCny = this.configService.get<number>('exchange.jpyToCny', 0.05);
+    this.jpyToUsd = this.configService.get<number>('exchange.jpyToUsd', 0.0067);
+  }
 
   /**
    * 从所有已配置的平台搜索商品
@@ -361,8 +368,8 @@ export class SyncService {
           platformName: 'Rakuten',
           title: item.itemName,
           priceJpy: item.itemPrice,
-          priceCny: Math.round(item.itemPrice * 0.048), // 简化汇率
-          priceUsd: Math.round(item.itemPrice * 0.0067 * 100) / 100,
+          priceCny: Math.round(item.itemPrice * this.jpyToCny),
+          priceUsd: Math.round(item.itemPrice * this.jpyToUsd * 100) / 100,
           currency: 'JPY',
           images: item.mediumImageUrls || item.smallImageUrls || [],
           imagesCount: item.imageFlag || 0,
@@ -405,8 +412,8 @@ export class SyncService {
           platformName: 'Yahoo',
           title: hit.name,
           priceJpy: hit.price,
-          priceCny: Math.round(hit.price * 0.048),
-          priceUsd: Math.round(hit.price * 0.0067 * 100) / 100,
+          priceCny: Math.round(hit.price * this.jpyToCny),
+          priceUsd: Math.round(hit.price * this.jpyToUsd * 100) / 100,
           currency: 'JPY',
           images: hit.image?.medium ? [hit.image.medium] : (typeof hit.image === 'string' ? [hit.image] : []),
           imagesCount: hit.image ? 1 : 0,
