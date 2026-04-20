@@ -1,5 +1,16 @@
 {
-  "buildCommand": "npx @nestjs/cli build",
-  "installCommand": "npm install --ignore-scripts",
-  "framework": null
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "dist/**/*",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.js" }
+  ]
 }
