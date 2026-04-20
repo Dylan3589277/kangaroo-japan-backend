@@ -1,14 +1,8 @@
-// Polyfill for crypto.randomUUID in CommonJS context
-if (typeof globalThis.crypto === 'undefined' || !globalThis.crypto.randomUUID) {
-  // @ts-ignore
-  globalThis.crypto = require('crypto');
-}
-
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { json } from 'express';
+import { json, type Request, type Response } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -18,9 +12,13 @@ async function bootstrap() {
   // Use raw body parser for Stripe webhooks (needs raw body Buffer)
   app.use(
     json({
-      verify: (req: any, _res, buf) => {
+      verify: (
+        req: Request & { rawBody?: Buffer },
+        _res: Response,
+        buf: Buffer,
+      ) => {
         // Store raw body for Stripe webhook signature verification
-        if (req.url === '/api/payments/webhook/stripe') {
+        if (req.url?.startsWith('/api/v1/payments/webhook/stripe')) {
           req.rawBody = buf;
         }
       },
@@ -28,14 +26,23 @@ async function bootstrap() {
   );
 
   // Enable CORS
-  const allowedOrigins = process.env.FRONTEND_URL 
-    ? [process.env.FRONTEND_URL, 'http://localhost:3001', 'http://localhost:3000']
+  const allowedOrigins = process.env.FRONTEND_URL
+    ? [
+        process.env.FRONTEND_URL,
+        'http://localhost:3001',
+        'http://localhost:3000',
+      ]
     : ['http://localhost:3001', 'http://localhost:3000'];
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language', 'stripe-signature'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept-Language',
+      'stripe-signature',
+    ],
   });
 
   // Parse cookies
@@ -50,10 +57,11 @@ async function bootstrap() {
     }),
   );
 
-    app.setGlobalPrefix('api/v1');
-  
-  const port = process.env.PORT || 3000;
+  app.setGlobalPrefix('api/v1');
+
+  const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(`🚀 Kangaroo Japan Backend running on http://localhost:${port}`);
+  console.log(`Kangaroo Japan Backend running on http://localhost:${port}`);
 }
-bootstrap();
+
+void bootstrap();
