@@ -1,16 +1,6 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "outputDirectory": "api",
   "installCommand": "npm install",
-  "framework": null,
-  "regions": ["iad1"],
-  "env": {
-    "DATABASE_URL": "postgresql://postgres:PWluQsxdQJuxdvIREPbhroihsljqeOmL@postgres.railway.internal:5432/railway",
-    "JWT_SECRET": "kangaroo-japan-secret-key-2024-production",
-    "NODE_ENV": "production",
-    "PORT": "3000",
-    "RAKUTEN_APP_ID": "6eefeab0-8951-4a3d-a3a6-0dda0de44e0f",
-    "YAHOO_CLIENT_ID": "dmVyPTIwMjUwNyZpZD1XTjNmeWJzVDlmJmhhc2g9TkRBMVpqTm1aV1kwWVRsak5UUXdaZw",
-    "YAHOO_CLIENT_SECRET": "jEWzzT0DmAPGo47BLjy5tgG1dx6N0Mtz5atVz0pd"
-  }
+  "framework": null
 }
