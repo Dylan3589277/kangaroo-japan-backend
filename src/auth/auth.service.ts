@@ -2,27 +2,30 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
-} from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import { ConfigService } from "@nestjs/config";
-import { UsersService } from "../users/users.service";
-import { User } from "../users/user.entity";
-import * as bcrypt from "bcrypt";
+  Inject,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { UsersService } from '../users/users.service';
+import {
+  User,
+  PreferredLanguage,
+  PreferredCurrency,
+} from '../users/user.entity';
+import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
-import * as crypto from "crypto";
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from './redis.constants';
 
-const REFRESH_TOKEN_COOKIE_NAME = "refresh_token";
-const ACCESS_TOKEN_COOKIE_NAME = "access_token";
+const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 @Injectable()
 export class AuthService {
-  // In-memory store for refresh tokens (in production, use Redis)
-  private refreshTokens = new Map<string, { userId: string; expiresAt: Date }>();
-
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    @Inject(REDIS_CLIENT) private redis: Redis,
   ) {}
 
   async validateUser(email: string, password: string): Promise<User | null> {
@@ -39,7 +42,7 @@ export class AuthService {
   async login(email: string, password: string) {
     const user = await this.validateUser(email, password);
     if (!user) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     // Update last login
@@ -66,7 +69,7 @@ export class AuthService {
       data.phone,
     );
     if (exists) {
-      throw new ConflictException("Email or phone already registered");
+      throw new ConflictException('Email or phone already registered');
     }
 
     const passwordHash = await bcrypt.hash(data.password, 10);
@@ -75,8 +78,8 @@ export class AuthService {
       phone: data.phone,
       passwordHash,
       name: data.name,
-      preferredLanguage: data.preferredLanguage as any,
-      preferredCurrency: data.preferredCurrency as any,
+      preferredLanguage: data.preferredLanguage as PreferredLanguage,
+      preferredCurrency: data.preferredCurrency as PreferredCurrency,
     });
 
     // Create empty cart for new user (handled by DB trigger in production)
@@ -88,29 +91,24 @@ export class AuthService {
   }
 
   async logout(refreshToken: string) {
-    // Remove refresh token from store
-    this.refreshTokens.delete(refreshToken);
-    return { message: "Logged out successfully" };
+    await this.redis.del(`refresh_token:${refreshToken}`);
+    return { message: 'Logged out successfully' };
   }
 
   async refresh(refreshToken: string) {
-    const tokenData = this.refreshTokens.get(refreshToken);
-    if (!tokenData) {
-      throw new UnauthorizedException("Invalid refresh token");
+    const raw = await this.redis.get(`refresh_token:${refreshToken}`);
+    if (!raw) {
+      throw new UnauthorizedException('Invalid refresh token');
     }
 
-    if (new Date() > tokenData.expiresAt) {
-      this.refreshTokens.delete(refreshToken);
-      throw new UnauthorizedException("Refresh token expired");
-    }
-
+    const tokenData = JSON.parse(raw) as { userId: string };
     const user = await this.usersService.findById(tokenData.userId);
     if (!user) {
-      throw new UnauthorizedException("User not found");
+      throw new UnauthorizedException('User not found');
     }
 
-    // Generate new tokens (token rotation)
-    this.refreshTokens.delete(refreshToken);
+    // Token rotation: delete old, issue new
+    await this.redis.del(`refresh_token:${refreshToken}`);
     const tokens = await this.generateTokens(user);
     return tokens;
   }
@@ -118,7 +116,7 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.usersService.findById(userId);
     if (!user) {
-      throw new UnauthorizedException("User not found");
+      throw new UnauthorizedException('User not found');
     }
     return this.sanitizeUser(user);
   }
@@ -127,17 +125,16 @@ export class AuthService {
     const payload = { sub: user.id, email: user.email, role: user.role };
 
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get("JWT_EXPIRES_IN", "15m"),
+      expiresIn: this.configService.get('JWT_EXPIRES_IN', '15m'),
     });
 
     const refreshToken = uuidv4();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
-
-    this.refreshTokens.set(refreshToken, {
-      userId: user.id,
-      expiresAt,
-    });
+    await this.redis.set(
+      `refresh_token:${refreshToken}`,
+      JSON.stringify({ userId: user.id }),
+      'EX',
+      REFRESH_TOKEN_TTL_SECONDS,
+    );
 
     return {
       access_token: accessToken,
@@ -147,6 +144,7 @@ export class AuthService {
   }
 
   private sanitizeUser(user: User) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...result } = user;
     return result;
   }
