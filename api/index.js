@@ -6,21 +6,33 @@ const { AppModule } = require('../dist/app.module');
 const { ExpressAdapter } = require('@nestjs/platform-express');
 const expressApp = express();
 
+let nestApp = null;
+let handler = null;
+
 async function createNestApp() {
-  const app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp));
+  if (nestApp) return nestApp;
   
-  app.enableCors({
-    origin: '*',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
-  });
+  try {
+    console.log('Creating NestJS app...');
+    nestApp = await NestFactory.create(AppModule, new ExpressAdapter(expressApp));
+    console.log('NestJS app created');
+    
+    nestApp.enableCors({
+      origin: '*',
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
+    });
+    console.log('CORS enabled');
 
-  await app.init();
-  return app;
+    await nestApp.init();
+    console.log('NestJS app initialized');
+    return nestApp;
+  } catch (error) {
+    console.error('Error creating NestJS app:', error);
+    throw error;
+  }
 }
-
-let handler;
 
 async function getHandler() {
   if (!handler) {
@@ -31,6 +43,18 @@ async function getHandler() {
 }
 
 module.exports = async (event, context) => {
-  const h = await getHandler();
-  return h(event, context);
+  try {
+    const h = await getHandler();
+    return h(event, context);
+  } catch (error) {
+    console.error('Handler error:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ 
+        error: 'Internal server error',
+        message: error.message,
+        stack: error.stack
+      })
+    };
+  }
 };
