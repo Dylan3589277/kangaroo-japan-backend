@@ -1,36 +1,36 @@
-import { AppModule } from '../dist/app.module';
-import { NestFactory } from '@nestjs/core';
-import serverless from 'serverless-http';
-import express from 'express';
-import '@nestjs/config';
-
-const app = express();
+// serverless handler for NestJS on Vercel
+const serverless = require('serverless-http');
+const express = require('express');
+const { NestFactory } = require('@nestjs/core');
+const { AppModule } = require('../src/app.module');
+const { ExpressAdapter } = require('@nestjs/platform-express');
+const expressApp = express();
 
 async function createNestApp() {
-  const nestApp = await NestFactory.create(AppModule, new (require('@nestjs/platform-express')).ExpressAdapter(app));
+  const app = NestFactory.create(AppModule, new ExpressAdapter(expressApp));
   
-  nestApp.enableCors({
+  app.enableCors({
     origin: '*',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
   });
 
-  await nestApp.init();
-  return nestApp;
+  await app.init();
+  return app;
 }
 
-let handler: any;
+let handler;
 
 async function getHandler() {
   if (!handler) {
     await createNestApp();
-    handler = serverless(app);
+    handler = serverless(expressApp);
   }
   return handler;
 }
 
-export default async (event: any, context: any) => {
+module.exports = async (event, context) => {
   const h = await getHandler();
   return h(event, context);
 };
