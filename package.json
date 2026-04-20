@@ -42,6 +42,7 @@
     "pingpp": "^2.1.6",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "serverless-http": "^4.0.0",
     "stripe": "^22.0.1",
     "typeorm": "^0.3.28",
     "uuid": "^9.0.1"

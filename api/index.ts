@@ -3,7 +3,7 @@ import serverlessHttp from 'serverless-http';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import express, { Request, Response } from 'express';
+import express from 'express';
 
 let cachedHandler: any;
 let initPromise: Promise<any>;
@@ -19,15 +19,8 @@ async function initHandler() {
       rawBody: true,
     });
 
-    // Webhook 需要 raw body
-    app.use(express.json({
-      verify: (req as any, _res, buf) => {
-        if ((req as any).url === '/api/payments/webhook/stripe') {
-          (req as any).rawBody = buf;
-        }
-      }
-    }));
-    app.use(express.urlencoded({ extended: true }));
+    expressApp.use(express.json());
+    expressApp.use(express.urlencoded({ extended: true }));
 
     app.enableCors({
       origin: '*',
@@ -37,13 +30,8 @@ async function initHandler() {
     });
 
     await app.init();
-    
-    cachedHandler = serverlessHttp(app, {
-      request: (request: any, event: any) => {
-        request.event = event;
-      },
-    });
-    
+
+    cachedHandler = serverlessHttp(app);
     return cachedHandler;
   })();
 
