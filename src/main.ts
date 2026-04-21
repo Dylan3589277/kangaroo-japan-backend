@@ -2,11 +2,20 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { json, type Request, type Response } from 'express';
+import { json, type Request, type Response, type NextFunction } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
+  });
+
+  // Request ID middleware — attach unique UUID to every request/response
+  app.use((req: Request & { id?: string }, res: Response, next: NextFunction) => {
+    const requestId = (req.headers['x-request-id'] as string) || uuidv4();
+    req.id = requestId;
+    res.setHeader('X-Request-ID', requestId);
+    next();
   });
 
   // Use raw body parser for Stripe webhooks (needs raw body Buffer)

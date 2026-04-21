@@ -96,19 +96,34 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string) {
-    const raw = await this.redis.get(`refresh_token:${refreshToken}`);
+    // Atomically get-and-delete the token to prevent replay attacks.
+    // A Lua script executes as a single Redis command, so concurrent requests
+    // cannot both claim the same token — only the first call succeeds.
+    const raw = (await this.redis.eval(
+      `local v = redis.call('GET', KEYS[1])
+if not v then return nil end
+redis.call('DEL', KEYS[1])
+return v`,
+      1,
+      `refresh_token:${refreshToken}`,
+    )) as string | null;
+
     if (!raw) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('Invalid or already used refresh token');
     }
 
-    const tokenData = JSON.parse(raw) as { userId: string };
+    let tokenData: { userId: string };
+    try {
+      tokenData = JSON.parse(raw) as { userId: string };
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
     const user = await this.usersService.findById(tokenData.userId);
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
-    // Token rotation: delete old, issue new
-    await this.redis.del(`refresh_token:${refreshToken}`);
+    // Old token already consumed atomically above; issue new token pair.
     const tokens = await this.generateTokens(user);
     return tokens;
   }

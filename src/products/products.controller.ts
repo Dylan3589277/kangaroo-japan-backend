@@ -4,8 +4,10 @@ import {
   Param,
   Query,
   NotFoundException,
+  ParseIntPipe,
+  DefaultValuePipe,
 } from "@nestjs/common";
-import type { ProductQueryDto } from "./products.service";
+import { ProductQueryDto } from "./dto/product-query.dto";
 import { ProductsService } from "./products.service";
 
 @Controller("api/v1/products")
@@ -23,13 +25,15 @@ export class ProductsController {
   async searchProducts(
     @Query("q") q: string,
     @Query("lang") lang = "zh",
-    @Query("page") page?: number,
-    @Query("limit") limit?: number,
+    @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {
     if (!q) {
       return { data: [], pagination: null };
     }
-    return this.productsService.search(q, lang, { page, limit });
+    const safePage = Math.max(1, Math.min(page, 10000));
+    const safeLimit = Math.max(1, Math.min(limit, 100));
+    return this.productsService.search(q, lang, { page: safePage, limit: safeLimit });
   }
 
   // GET /products/compare - 比价

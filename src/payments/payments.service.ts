@@ -10,7 +10,7 @@ import * as crypto from 'crypto';
 import type { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Payment, PaymentStatus, PaymentMethod, PaymentProvider, Currency } from './payment.entity';
 import { StripeService } from './stripe.service';
@@ -25,6 +25,7 @@ export class PaymentsService {
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
+    private readonly dataSource: DataSource,
     private readonly stripeService: StripeService,
     private readonly pingxxService: PingxxService,
     private readonly ordersService: OrdersService,
@@ -82,6 +83,17 @@ export class PaymentsService {
         return {
           paymentId: existingPayment.id,
           clientSecret: (existingPayment.methodDetails as any)?.clientSecret,
+          amount: Number(existingPayment.amount),
+          currency: existingPayment.currency,
+          expiresAt: existingPayment.expiredAt!,
+        };
+      } else {
+        // Ping++ 支付：返回已有的 charge 信息，避免重复创建
+        return {
+          paymentId: existingPayment.id,
+          paymentUrl: (existingPayment.methodDetails as any)?.paymentUrl,
+          chargeId: (existingPayment.methodDetails as any)?.chargeId,
+          credential: (existingPayment.methodDetails as any)?.credential,
           amount: Number(existingPayment.amount),
           currency: existingPayment.currency,
           expiresAt: existingPayment.expiredAt!,
@@ -355,16 +367,18 @@ export class PaymentsService {
    */
   async handlePingxxWebhook(req: Request, signature: string, payload: unknown): Promise<void> {
     const webhookSecret = this.configService.get<string>('pingxx.webhookSecret') ?? '';
-    if (webhookSecret) {
-      const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
-      const bodyStr = rawBody ? rawBody.toString('utf8') : JSON.stringify(payload);
-      const expected = crypto
-        .createHmac('sha256', webhookSecret)
-        .update(bodyStr)
-        .digest('hex');
-      if (!crypto.timingSafeEqual(Buffer.from(signature ?? ''), Buffer.from(expected))) {
-        throw new UnauthorizedException('Invalid Ping++ webhook signature');
-      }
+    if (!webhookSecret) {
+      this.logger.error('SECURITY: pingxx.webhookSecret is not configured — rejecting webhook to prevent signature bypass');
+      throw new UnauthorizedException('Ping++ webhook secret is not configured');
+    }
+    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+    const bodyStr = rawBody ? rawBody.toString('utf8') : JSON.stringify(payload);
+    const expected = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(bodyStr)
+      .digest('hex');
+    if (!crypto.timingSafeEqual(Buffer.from(signature ?? ''), Buffer.from(expected))) {
+      throw new UnauthorizedException('Invalid Ping++ webhook signature');
     }
 
     const { type, data, object } = payload as { type: string; data?: { object?: any }; object?: any };
@@ -381,42 +395,52 @@ export class PaymentsService {
   }
 
   /**
-   * 处理支付成功
+   * 处理支付成功（幂等：事务内悲观锁，终态则跳过）
    */
   private async handlePaymentSuccess(orderId: string, providerPaymentId: string): Promise<void> {
     if (!orderId) return;
 
-    const payment = await this.paymentRepository.findOne({
-      where: { providerPaymentId },
-      relations: ['order'],
+    const TERMINAL_STATES: PaymentStatus[] = [
+      PaymentStatus.SUCCEEDED,
+      PaymentStatus.REFUNDED,
+      PaymentStatus.CANCELLED,
+    ];
+
+    await this.dataSource.transaction(async (manager) => {
+      const payment = await manager.findOne(Payment, {
+        where: { providerPaymentId },
+        relations: ['order'],
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!payment) {
+        this.logger.warn(`Payment not found for providerPaymentId: ${providerPaymentId}`);
+        return;
+      }
+
+      if (TERMINAL_STATES.includes(payment.status)) {
+        this.logger.log(`Skipping duplicate webhook for providerPaymentId: ${providerPaymentId} (status: ${payment.status})`);
+        return;
+      }
+
+      payment.status = PaymentStatus.SUCCEEDED;
+      payment.paidAt = new Date();
+      await manager.save(payment);
+
+      // 更新订单状态
+      if (payment.order) {
+        await this.ordersService.updatePaymentStatus(
+          payment.orderId,
+          'paid',
+          payment.method,
+          payment.id,
+        );
+      }
     });
-
-    if (!payment) {
-      this.logger.warn(`Payment not found for providerPaymentId: ${providerPaymentId}`);
-      return;
-    }
-
-    if (payment.status === PaymentStatus.SUCCEEDED) {
-      return; // 已处理
-    }
-
-    payment.status = PaymentStatus.SUCCEEDED;
-    payment.paidAt = new Date();
-    await this.paymentRepository.save(payment);
-
-    // 更新订单状态
-    if (payment.order) {
-      await this.ordersService.updatePaymentStatus(
-        payment.orderId,
-        'paid',
-        payment.method,
-        payment.id,
-      );
-    }
   }
 
   /**
-   * 处理支付失败
+   * 处理支付失败（幂等：已处于终态则跳过）
    */
   private async handlePaymentFailed(
     orderId: string,
@@ -431,13 +455,18 @@ export class PaymentsService {
 
     if (!payment) return;
 
+    if (payment.status !== PaymentStatus.PENDING && payment.status !== PaymentStatus.PROCESSING) {
+      this.logger.log(`Skipping duplicate failure webhook for providerPaymentId: ${providerPaymentId} (status: ${payment.status})`);
+      return;
+    }
+
     payment.status = PaymentStatus.FAILED;
     payment.failureMessage = errorMessage || 'Unknown error';
     await this.paymentRepository.save(payment);
   }
 
   /**
-   * 处理支付取消
+   * 处理支付取消（幂等：已处于终态则跳过）
    */
   private async handlePaymentCancelled(orderId: string, providerPaymentId: string): Promise<void> {
     if (!orderId) return;
@@ -447,6 +476,11 @@ export class PaymentsService {
     });
 
     if (!payment) return;
+
+    if (payment.status !== PaymentStatus.PENDING && payment.status !== PaymentStatus.PROCESSING) {
+      this.logger.log(`Skipping duplicate cancel webhook for providerPaymentId: ${providerPaymentId} (status: ${payment.status})`);
+      return;
+    }
 
     payment.status = PaymentStatus.CANCELLED;
     await this.paymentRepository.save(payment);

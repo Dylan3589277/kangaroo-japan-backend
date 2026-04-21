@@ -4,18 +4,8 @@ import { Repository, In, MoreThanOrEqual } from 'typeorm';
 import { Product, Platform, ProductStatus } from './product.entity';
 import { Category } from './category.entity';
 import { PriceHistory } from './price-history.entity';
-
-export interface ProductQueryDto {
-  lang?: string;
-  page?: number;
-  limit?: number;
-  platform?: string;
-  categoryId?: string;
-  priceMin?: number;
-  priceMax?: number;
-  sort?: string;
-  status?: string;
-}
+import { ProductQueryDto } from './dto/product-query.dto';
+export { ProductQueryDto } from './dto/product-query.dto';
 
 export interface ProductListResponse {
   data: any[];
