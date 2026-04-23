@@ -5,8 +5,8 @@ import {
   IsEnum,
   IsBoolean,
   IsEmail,
-} from "class-validator";
-import { AddressCountry, AddressLabel } from "../../users/address.entity";
+} from 'class-validator';
+import { AddressCountry, AddressLabel } from '../../users/address.entity';
 
 export class CreateAddressDto {
   @IsString()
@@ -32,6 +32,10 @@ export class CreateAddressDto {
   @IsOptional()
   @IsString()
   addressLine2?: string;
+
+  @IsOptional()
+  @IsString()
+  prefecture?: string;
 
   @IsOptional()
   @IsString()
@@ -102,6 +106,10 @@ export class UpdateAddressDto {
   @IsOptional()
   @IsString()
   addressLine2?: string;
+
+  @IsOptional()
+  @IsString()
+  prefecture?: string;
 
   @IsOptional()
   @IsString()

@@ -4,7 +4,6 @@ import {
   Get,
   Body,
   Param,
-  Query,
   Headers,
   Req,
   UseGuards,
@@ -12,14 +11,25 @@ import {
   HttpStatus,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiHeader,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+interface AuthenticatedRequest extends Request {
+  user?: { id: string };
+  rawBody?: Buffer;
+}
+
 @ApiTags('支付')
-@Controller('payments')
+@Controller('api/v1/payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
@@ -31,21 +41,29 @@ export class PaymentsController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '创建支付意图' })
-  @ApiHeader({ name: 'Authorization', description: 'Bearer Token', required: true })
+  @ApiHeader({
+    name: 'Authorization',
+    description: 'Bearer Token',
+    required: true,
+  })
   @ApiResponse({ status: 200, description: '创建成功' })
   @ApiResponse({ status: 400, description: '请求错误' })
   @ApiResponse({ status: 401, description: '未授权' })
   async createIntent(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Body() dto: CreatePaymentIntentDto,
   ) {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException();
     }
 
     const clientIp = this.getClientIp(req);
-    const result = await this.paymentsService.createPaymentIntent(userId, dto, clientIp);
+    const result = await this.paymentsService.createPaymentIntent(
+      userId,
+      dto,
+      clientIp,
+    );
 
     return {
       success: true,
@@ -64,11 +82,11 @@ export class PaymentsController {
   @ApiResponse({ status: 200, description: '确认成功' })
   @ApiResponse({ status: 400, description: '请求错误' })
   async confirmPayment(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id') paymentId: string,
     @Body() body: { payment_method_id?: string },
   ) {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException();
     }
@@ -95,10 +113,10 @@ export class PaymentsController {
   @ApiOperation({ summary: '取消支付' })
   @ApiResponse({ status: 200, description: '取消成功' })
   async cancelPayment(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id') paymentId: string,
   ) {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException();
     }
@@ -120,15 +138,18 @@ export class PaymentsController {
   @ApiOperation({ summary: '获取支付状态' })
   @ApiResponse({ status: 200, description: '获取成功' })
   async getPaymentStatus(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id') paymentId: string,
   ) {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException();
     }
 
-    const payment = await this.paymentsService.getPaymentStatus(paymentId, userId);
+    const payment = await this.paymentsService.getPaymentStatus(
+      paymentId,
+      userId,
+    );
 
     return {
       success: true,
@@ -144,17 +165,21 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Stripe 支付回调' })
   @ApiResponse({ status: 200, description: '处理成功' })
   async stripeWebhook(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Headers('stripe-signature') signature: string,
-    @Body() body: any,
+    @Body() body: Record<string, unknown>,
   ) {
     // 获取 webhook secret
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
     // Stripe 需要原始 body（已在 main.ts 中通过 verify 函数设置到 req.rawBody）
-    const rawBody = (req as any).rawBody || Buffer.from(JSON.stringify(body));
+    const rawBody = req.rawBody || Buffer.from(JSON.stringify(body));
 
-    await this.paymentsService.handleStripeWebhook(rawBody, signature, webhookSecret);
+    await this.paymentsService.handleStripeWebhook(
+      rawBody,
+      signature,
+      webhookSecret,
+    );
 
     return { received: true };
   }
@@ -171,11 +196,7 @@ export class PaymentsController {
     @Headers('x-pingplusplus-signature') signature: string,
     @Body() body: unknown,
   ) {
-    await this.paymentsService.handlePingxxWebhook(
-      req,
-      signature,
-      body,
-    );
+    await this.paymentsService.handlePingxxWebhook(req, signature, body);
 
     return { received: true };
   }
@@ -190,11 +211,11 @@ export class PaymentsController {
   @ApiOperation({ summary: '退款' })
   @ApiResponse({ status: 200, description: '退款成功' })
   async refundPayment(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Param('id') paymentId: string,
     @Body() body: { amount?: number; reason?: string },
   ) {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException();
     }

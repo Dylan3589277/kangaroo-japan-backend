@@ -11,12 +11,14 @@ async function bootstrap() {
   });
 
   // Request ID middleware — attach unique UUID to every request/response
-  app.use((req: Request & { id?: string }, res: Response, next: NextFunction) => {
-    const requestId = (req.headers['x-request-id'] as string) || uuidv4();
-    req.id = requestId;
-    res.setHeader('X-Request-ID', requestId);
-    next();
-  });
+  app.use(
+    (req: Request & { id?: string }, res: Response, next: NextFunction) => {
+      const requestId = (req.headers['x-request-id'] as string) || uuidv4();
+      req.id = requestId;
+      res.setHeader('X-Request-ID', requestId);
+      next();
+    },
+  );
 
   // Use raw body parser for Stripe webhooks (needs raw body Buffer)
   app.use(
@@ -66,7 +68,8 @@ async function bootstrap() {
     }),
   );
 
-  app.setGlobalPrefix('api/v1');
+  // NOTE: Do NOT set global prefix here — all controllers already include 'api/v1/' in their @Controller() decorator.
+  // app.setGlobalPrefix('api/v1');
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);

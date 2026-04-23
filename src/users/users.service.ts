@@ -1,9 +1,9 @@
-import { Injectable, ConflictException, NotFoundException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { User, UserStatus, UserRole } from "./user.entity";
-import { Address } from "./address.entity";
-import * as bcrypt from "bcrypt";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from './user.entity';
+import { Address } from './address.entity';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
@@ -19,7 +19,11 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email } });
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.email = :email', { email })
+      .getOne();
   }
 
   async findByPhone(phone: string): Promise<User | null> {
@@ -34,7 +38,7 @@ export class UsersService {
   async update(id: string, data: Partial<User>): Promise<User> {
     const user = await this.findById(id);
     if (!user) {
-      throw new NotFoundException("User not found");
+      throw new NotFoundException('User not found');
     }
     Object.assign(user, data);
     return this.usersRepository.save(user);
@@ -49,7 +53,10 @@ export class UsersService {
     await this.usersRepository.update(id, { lastLoginAt: new Date() });
   }
 
-  async checkEmailOrPhoneExists(email?: string, phone?: string): Promise<boolean> {
+  async checkEmailOrPhoneExists(
+    email?: string,
+    phone?: string,
+  ): Promise<boolean> {
     if (email) {
       const existing = await this.findByEmail(email);
       if (existing) return true;
@@ -65,17 +72,23 @@ export class UsersService {
   async getAddresses(userId: string): Promise<Address[]> {
     return this.addressesRepository.find({
       where: { userId },
-      order: { isDefault: "DESC", createdAt: "DESC" },
+      order: { isDefault: 'DESC', createdAt: 'DESC' },
     });
   }
 
-  async getAddressById(userId: string, addressId: string): Promise<Address | null> {
+  async getAddressById(
+    userId: string,
+    addressId: string,
+  ): Promise<Address | null> {
     return this.addressesRepository.findOne({
       where: { id: addressId, userId },
     });
   }
 
-  async createAddress(userId: string, data: Partial<Address>): Promise<Address> {
+  async createAddress(
+    userId: string,
+    data: Partial<Address>,
+  ): Promise<Address> {
     // If this is set as default, unset other defaults
     if (data.isDefault) {
       await this.addressesRepository.update({ userId }, { isDefault: false });
@@ -91,7 +104,7 @@ export class UsersService {
   ): Promise<Address> {
     const address = await this.getAddressById(userId, addressId);
     if (!address) {
-      throw new NotFoundException("Address not found");
+      throw new NotFoundException('Address not found');
     }
     // If setting as default, unset other defaults
     if (data.isDefault) {
@@ -104,7 +117,7 @@ export class UsersService {
   async deleteAddress(userId: string, addressId: string): Promise<void> {
     const address = await this.getAddressById(userId, addressId);
     if (!address) {
-      throw new NotFoundException("Address not found");
+      throw new NotFoundException('Address not found');
     }
     await this.addressesRepository.remove(address);
   }
@@ -112,7 +125,7 @@ export class UsersService {
   async setDefaultAddress(userId: string, addressId: string): Promise<Address> {
     const address = await this.getAddressById(userId, addressId);
     if (!address) {
-      throw new NotFoundException("Address not found");
+      throw new NotFoundException('Address not found');
     }
     await this.addressesRepository.update({ userId }, { isDefault: false });
     address.isDefault = true;
