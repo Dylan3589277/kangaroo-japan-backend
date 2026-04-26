@@ -28,6 +28,10 @@ import { PaymentsModule } from './payments/payments.module';
 import { Payment } from './payments/payment.entity';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { ShippingModule } from './shipping/shipping.module';
+import { HealthModule } from './health/health.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { WechatModule } from './wechat/wechat.module';
+import { SmsModule } from './sms/sms.module';
 
 @Module({
   imports: [
@@ -82,6 +86,10 @@ import { ShippingModule } from './shipping/shipping.module';
     PaymentsModule,
     IntegrationsModule,
     ShippingModule,
+    HealthModule,
+    DashboardModule,
+    WechatModule,
+    SmsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -25,9 +25,16 @@ export enum ProductStatus {
 }
 
 @Entity("products")
+// 单字段索引
 @Index("idx_products_platform", ["platform"])
 @Index("idx_products_category", ["categoryId"])
 @Index("idx_products_status", ["status"])
+// 复合索引：status 在所有查询中始终存在，与高频过滤/排序字段组合
+@Index("idx_products_status_platform", ["status", "platform"])
+@Index("idx_products_status_category", ["status", "categoryId"])
+@Index("idx_products_status_price", ["status", "priceJpy"])
+@Index("idx_products_status_created", ["status", "createdAt"])
+@Index("idx_products_status_rating", ["status", "rating"])
 export class Product {
   @PrimaryGeneratedColumn("uuid")
   id: string;
