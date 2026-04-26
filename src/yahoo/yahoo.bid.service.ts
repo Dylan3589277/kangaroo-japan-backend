@@ -5,7 +5,7 @@ import { YahooBid, YahooBidStatus } from './entities/yahoo-bid.entity';
 import { YahooGoods } from './entities/yahoo-goods.entity';
 import { DepositService } from '../deposit/deposit.service';
 
-interface BidResult {
+export interface BidResult {
   code: number;
   errmsg: string;
 }

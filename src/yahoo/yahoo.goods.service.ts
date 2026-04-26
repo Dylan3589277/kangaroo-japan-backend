@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { YahooGoods, YahooGoodsStatus } from './entities/yahoo-goods.entity';
 
-interface GoodsDetailResponse {
+export interface GoodsDetailResponse {
   goods_name: string;
   price: number;
   bid_price: number;
@@ -30,7 +30,7 @@ interface GoodsDetailResponse {
   rate: string;
 }
 
-interface GoodsListResult {
+export interface GoodsListResult {
   goodsList: YahooGoods[];
   totalPages: number;
   total: number;
