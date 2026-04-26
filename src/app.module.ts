@@ -49,6 +49,10 @@ import { YahooBid } from './yahoo/entities/yahoo-bid.entity';
 import { YahooModule } from './yahoo/yahoo.module';
 import { SignLog } from './sign/sign-log.entity';
 import { SignModule } from './sign/sign.module';
+import { ActivitySubmission } from './activity/activity-submission.entity';
+import { ActivityModule } from './activity/activity.module';
+import { TranslateModule } from './translate/translate.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -96,6 +100,7 @@ import { SignModule } from './sign/sign.module';
           YahooGoods,
           YahooBid,
           SignLog,
+          ActivitySubmission,
         ],
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get('database.logging'),
@@ -124,6 +129,9 @@ import { SignModule } from './sign/sign.module';
     ScoreShopModule,
     YahooModule,
     SignModule,
+    ActivityModule,
+    TranslateModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [
