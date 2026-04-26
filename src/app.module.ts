@@ -40,6 +40,10 @@ import { Deposit } from './deposit/deposit.entity';
 import { UserLevel } from './vip/entities/user-level.entity';
 import { VipOrder } from './vip/entities/vip-order.entity';
 import { VipModule } from './vip/vip.module';
+import { Coupon } from './score-shop/entities/coupon.entity';
+import { UserCoupon } from './score-shop/entities/user-coupon.entity';
+import { ScoreLog } from './score-shop/entities/score-log.entity';
+import { ScoreShopModule } from './score-shop/score-shop.module';
 
 @Module({
   imports: [
@@ -81,6 +85,9 @@ import { VipModule } from './vip/vip.module';
           Deposit,
           UserLevel,
           VipOrder,
+          Coupon,
+          UserCoupon,
+          ScoreLog,
         ],
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get('database.logging'),
@@ -106,6 +113,7 @@ import { VipModule } from './vip/vip.module';
     WarehouseModule,
     DepositModule,
     VipModule,
+    ScoreShopModule,
   ],
   controllers: [AppController],
   providers: [
