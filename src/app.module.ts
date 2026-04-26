@@ -44,6 +44,9 @@ import { Coupon } from './score-shop/entities/coupon.entity';
 import { UserCoupon } from './score-shop/entities/user-coupon.entity';
 import { ScoreLog } from './score-shop/entities/score-log.entity';
 import { ScoreShopModule } from './score-shop/score-shop.module';
+import { YahooGoods } from './yahoo/entities/yahoo-goods.entity';
+import { YahooBid } from './yahoo/entities/yahoo-bid.entity';
+import { YahooModule } from './yahoo/yahoo.module';
 
 @Module({
   imports: [
@@ -88,6 +91,8 @@ import { ScoreShopModule } from './score-shop/score-shop.module';
           Coupon,
           UserCoupon,
           ScoreLog,
+          YahooGoods,
+          YahooBid,
         ],
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get('database.logging'),
@@ -114,6 +119,7 @@ import { ScoreShopModule } from './score-shop/score-shop.module';
     DepositModule,
     VipModule,
     ScoreShopModule,
+    YahooModule,
   ],
   controllers: [AppController],
   providers: [
