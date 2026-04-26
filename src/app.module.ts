@@ -32,6 +32,9 @@ import { HealthModule } from './health/health.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { WechatModule } from './wechat/wechat.module';
 import { SmsModule } from './sms/sms.module';
+import { WarehouseModule } from './warehouse/warehouse.module';
+import { ShipmentOrder } from './warehouse/entities/shipment-order.entity';
+import { OrderPhoto } from './warehouse/entities/order-photo.entity';
 
 @Module({
   imports: [
@@ -68,6 +71,8 @@ import { SmsModule } from './sms/sms.module';
           Cart,
           CartItem,
           Payment,
+          ShipmentOrder,
+          OrderPhoto,
         ],
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get('database.logging'),
@@ -90,6 +95,7 @@ import { SmsModule } from './sms/sms.module';
     DashboardModule,
     WechatModule,
     SmsModule,
+    WarehouseModule,
   ],
   controllers: [AppController],
   providers: [
