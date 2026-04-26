@@ -47,6 +47,8 @@ import { ScoreShopModule } from './score-shop/score-shop.module';
 import { YahooGoods } from './yahoo/entities/yahoo-goods.entity';
 import { YahooBid } from './yahoo/entities/yahoo-bid.entity';
 import { YahooModule } from './yahoo/yahoo.module';
+import { SignLog } from './sign/sign-log.entity';
+import { SignModule } from './sign/sign.module';
 
 @Module({
   imports: [
@@ -93,6 +95,7 @@ import { YahooModule } from './yahoo/yahoo.module';
           ScoreLog,
           YahooGoods,
           YahooBid,
+          SignLog,
         ],
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get('database.logging'),
@@ -120,6 +123,7 @@ import { YahooModule } from './yahoo/yahoo.module';
     VipModule,
     ScoreShopModule,
     YahooModule,
+    SignModule,
   ],
   controllers: [AppController],
   providers: [
