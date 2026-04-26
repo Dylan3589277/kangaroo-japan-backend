@@ -33,8 +33,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { WechatModule } from './wechat/wechat.module';
 import { SmsModule } from './sms/sms.module';
 import { WarehouseModule } from './warehouse/warehouse.module';
+import { DepositModule } from './deposit/deposit.module';
 import { ShipmentOrder } from './warehouse/entities/shipment-order.entity';
 import { OrderPhoto } from './warehouse/entities/order-photo.entity';
+import { Deposit } from './deposit/deposit.entity';
 
 @Module({
   imports: [
@@ -73,6 +75,7 @@ import { OrderPhoto } from './warehouse/entities/order-photo.entity';
           Payment,
           ShipmentOrder,
           OrderPhoto,
+          Deposit,
         ],
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get('database.logging'),
@@ -96,6 +99,7 @@ import { OrderPhoto } from './warehouse/entities/order-photo.entity';
     WechatModule,
     SmsModule,
     WarehouseModule,
+    DepositModule,
   ],
   controllers: [AppController],
   providers: [

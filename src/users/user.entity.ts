@@ -57,6 +57,9 @@ export class User {
   @Column({ type: "enum", enum: UserStatus, default: UserStatus.ACTIVE })
   status: UserStatus;
 
+  @Column({ name: "deposit_balance", type: "decimal", precision: 12, scale: 2, default: 0 })
+  depositBalance: number;
+
   @Column({ name: "email_verified", default: false })
   emailVerified: boolean;
 
