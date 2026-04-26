@@ -91,6 +91,18 @@ export class User {
   @UpdateDateColumn({ name: "updated_at" })
   updatedAt: Date;
 
+  @Column({ type: 'int', default: 1 })
+  level: number; // 当前等级ID（默认1=普通会员）
+
+  @Column({ name: 'level_end_time', type: 'timestamp', nullable: true })
+  levelEndTime: Date; // 会员到期时间
+
+  @Column({ type: 'int', default: 0 })
+  score: number; // 当前积分
+
+  @Column({ name: 'score_total', type: 'int', default: 0 })
+  scoreTotal: number; // 累计获得积分
+
   @OneToMany(() => Address, (address) => address.user)
   addresses: Address[];
 }

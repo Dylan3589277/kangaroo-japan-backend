@@ -37,6 +37,9 @@ import { DepositModule } from './deposit/deposit.module';
 import { ShipmentOrder } from './warehouse/entities/shipment-order.entity';
 import { OrderPhoto } from './warehouse/entities/order-photo.entity';
 import { Deposit } from './deposit/deposit.entity';
+import { UserLevel } from './vip/entities/user-level.entity';
+import { VipOrder } from './vip/entities/vip-order.entity';
+import { VipModule } from './vip/vip.module';
 
 @Module({
   imports: [
@@ -76,6 +79,8 @@ import { Deposit } from './deposit/deposit.entity';
           ShipmentOrder,
           OrderPhoto,
           Deposit,
+          UserLevel,
+          VipOrder,
         ],
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get('database.logging'),
@@ -100,6 +105,7 @@ import { Deposit } from './deposit/deposit.entity';
     SmsModule,
     WarehouseModule,
     DepositModule,
+    VipModule,
   ],
   controllers: [AppController],
   providers: [
