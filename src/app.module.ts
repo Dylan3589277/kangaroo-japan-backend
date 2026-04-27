@@ -53,6 +53,10 @@ import { ActivitySubmission } from './activity/activity-submission.entity';
 import { ActivityModule } from './activity/activity.module';
 import { TranslateModule } from './translate/translate.module';
 import { ChatModule } from './chat/chat.module';
+import { DrawModule } from './draw/draw.module';
+import { DrawActivity } from './draw/entities/draw-activity.entity';
+import { DrawPrize } from './draw/entities/draw-prize.entity';
+import { DrawLog } from './draw/entities/draw-log.entity';
 
 @Module({
   imports: [
@@ -78,6 +82,7 @@ import { ChatModule } from './chat/chat.module';
         username: config.get('database.username'),
         password: config.get('database.password'),
         database: config.get('database.database'),
+        ssl: config.get('database.ssl') || undefined,
         entities: [
           User,
           Address,
@@ -101,6 +106,9 @@ import { ChatModule } from './chat/chat.module';
           YahooBid,
           SignLog,
           ActivitySubmission,
+          DrawActivity,
+          DrawPrize,
+          DrawLog,
         ],
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get('database.logging'),
@@ -132,6 +140,7 @@ import { ChatModule } from './chat/chat.module';
     ActivityModule,
     TranslateModule,
     ChatModule,
+    DrawModule,
   ],
   controllers: [AppController],
   providers: [
