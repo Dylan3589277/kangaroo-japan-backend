@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { v4 as uuidv4 } from 'uuid';
 import { Deposit, DepositStatus, DepositType } from './deposit.entity';
 import { User } from '../users/user.entity';
 import { Payment, PaymentStatus, PaymentMethod, PaymentProvider, Currency } from '../payments/payment.entity';
@@ -26,25 +25,25 @@ export class DepositService {
   ) {}
 
   /**
-   * 生成押金订单号
+   * 生成幂等押金订单号：DEPOSIT_ + 时间戳 + 随机6位
    */
   private generateOrderNo(): string {
-    const timestamp = Date.now().toString(36).toUpperCase();
-    const random = uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase();
-    return `DEP${timestamp}${random}`;
+    const ts = Date.now();
+    const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `DEPOSIT_${ts}_${rand}`;
   }
 
   /**
    * 生成支付流水号
    */
   private generatePaymentNo(): string {
-    const timestamp = Date.now().toString(36).toUpperCase();
-    const random = uuidv4().replace(/-/g, '').substring(0, 8).toUpperCase();
-    return `PAY${timestamp}${random}`;
+    const ts = Date.now();
+    const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `PAY_${ts}_${rand}`;
   }
 
   /**
-   * 创建押金充值订单（调已有支付）
+   * 创建押金充值订单（在事务中同时创建 deposit + payment 记录）
    */
   async createDeposit(
     userId: string,
@@ -66,37 +65,37 @@ export class DepositService {
     const orderNo = this.generateOrderNo();
     const paymentNo = this.generatePaymentNo();
 
-    // 创建押金记录
-    const deposit = this.depositRepository.create({
-      userId,
-      amount,
-      status: DepositStatus.PENDING,
-      type: DepositType.RECHARGE,
-      orderNo,
-      remark: '竞拍押金支付',
-    });
-    await this.depositRepository.save(deposit);
+    return await this.dataSource.transaction(async (manager) => {
+      const deposit = this.depositRepository.create({
+        userId,
+        amount,
+        status: DepositStatus.PENDING,
+        type: DepositType.RECHARGE,
+        orderNo,
+        remark: '竞拍押金支付',
+      });
+      const savedDeposit = await manager.save(deposit);
 
-    // 创建支付记录（已有支付系统会处理后续支付）
-    const payment = this.paymentRepository.create({
-      paymentNo,
-      orderId: deposit.id,
-      userId,
-      amount,
-      currency: Currency.CNY,
-      method: PaymentMethod.ALIPAY,
-      provider: PaymentProvider.PINGXX,
-      status: PaymentStatus.PENDING,
-      expiredAt: new Date(Date.now() + 30 * 60 * 1000),
-    });
-    await this.paymentRepository.save(payment);
+      const payment = this.paymentRepository.create({
+        paymentNo,
+        orderId: savedDeposit.id,
+        userId,
+        amount,
+        currency: Currency.CNY,
+        method: PaymentMethod.ALIPAY,
+        provider: PaymentProvider.PINGXX,
+        status: PaymentStatus.PENDING,
+        expiredAt: new Date(Date.now() + 30 * 60 * 1000),
+      });
+      await manager.save(payment);
 
-    return {
-      depositId: deposit.id,
-      orderNo: deposit.orderNo,
-      paymentNo: payment.paymentNo,
-      amount: Number(deposit.amount),
-    };
+      return {
+        depositId: savedDeposit.id,
+        orderNo: savedDeposit.orderNo,
+        paymentNo: payment.paymentNo,
+        amount: Number(savedDeposit.amount),
+      };
+    });
   }
 
   /**
@@ -157,6 +156,8 @@ export class DepositService {
 
   /**
    * 押金退款申请
+   * 只创建退款申请记录（status = REFUNDING），不直接扣减余额。
+   * 实际余额扣减由管理员审批后执行。
    */
   async refundDeposit(
     userId: string,
@@ -168,19 +169,8 @@ export class DepositService {
       throw new BadRequestException('请输入退款金额');
     }
 
-    // 检查是否有未处理的退款申请
-    const pendingRefund = await this.depositRepository.findOne({
-      where: {
-        userId,
-        status: DepositStatus.REFUNDING,
-      },
-    });
-    if (pendingRefund) {
-      throw new BadRequestException('你还有未处理的申请');
-    }
-
-    // 在事务中处理退款申请
     return await this.dataSource.transaction(async (manager) => {
+      // 在事务内加锁检查，防止并发双重提交
       const user = await manager.findOne(User, {
         where: { id: userId },
         lock: { mode: 'pessimistic_write' },
@@ -194,23 +184,26 @@ export class DepositService {
         throw new BadRequestException('你的押金不足');
       }
 
-      // 扣除押金余额
-      await manager
-        .createQueryBuilder()
-        .update(User)
-        .set({ depositBalance: () => `deposit_balance - ${amount}` })
-        .where('id = :id', { id: userId })
-        .execute();
+      // 检查是否有未处理的退款申请
+      const pendingRefund = await manager.findOne(Deposit, {
+        where: {
+          userId,
+          status: DepositStatus.REFUNDING,
+        },
+      });
+      if (pendingRefund) {
+        throw new BadRequestException('你还有未处理的申请');
+      }
 
-      // 创建退款记录
-      const orderNo = 'REF' + this.generateOrderNo();
+      // 仅创建退款申请记录，余额待管理员审批后扣除
+      const orderNo = `REFUND_${Date.now()}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
       const deposit = this.depositRepository.create({
         userId,
         amount: -amount,
         status: DepositStatus.REFUNDING,
         type: DepositType.REFUND,
         orderNo,
-        remark: `押金退款 - 支付宝: ${alipayNo || ''}`,
+        remark: `押金退款申请 - 支付宝: ${alipayNo || ''}${alipayRealname ? ' / ' + alipayRealname : ''}`,
         refundReason: '用户申请退款',
       });
       await manager.save(deposit);
@@ -241,7 +234,6 @@ export class DepositService {
       deposit.paymentId = paymentId;
       await manager.save(deposit);
 
-      // 增加用户押金余额
       await manager
         .createQueryBuilder()
         .update(User)
@@ -269,7 +261,7 @@ export class DepositService {
         throw new BadRequestException('押金不足');
       }
 
-      const orderNo = 'DED' + this.generateOrderNo();
+      const orderNo = `DEDUCT_${Date.now()}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
       const deposit = this.depositRepository.create({
         userId,
         amount: -amount,

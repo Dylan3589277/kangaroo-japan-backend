@@ -1,0 +1,448 @@
+{
+  "meta": {
+    "task_id": "TASK-2026-0426-005",
+    "project": "kangaroo-japan-backend",
+    "working_directory": "/Users/hulonghua/workspace/kangaroo-japan-backend",
+    "mode": "autoplan",
+    "language": "zh-CN",
+    "scope": "只做架构规划和任务拆解，不直接修改业务代码、不部署、不改数据库",
+    "agent_role": "达摩院/首席架构师",
+    "generated_at": "2026-04-27_122809",
+    "gstack": {
+      "requested": true,
+      "status": "未发现本机 gstack 命令或同名技能；已按现有团队沉淀中的 Load gstack 工作流约束执行规划，不做代码实现"
+    },
+    "agents_md": {
+      "exists": false,
+      "handling": "项目根目录未发现 AGENTS.md，按用户要求输出清晰 JSON"
+    }
+  },
+  "repo_survey_summary": {
+    "tech_stack": [
+      "NestJS 11",
+      "TypeScript 5.7",
+      "TypeORM 0.3",
+      "PostgreSQL",
+      "JWT Auth Guard",
+      "Swagger decorators",
+      "Stripe/Ping++ payment integrations",
+      "Jest"
+    ],
+    "entry_points": [
+      "src/app.module.ts 已集中注册 TypeOrm entities 与业务模块",
+      "src/main.ts 注释说明不要设置 global prefix，控制器自身已包含 api/v1 前缀",
+      "package.json 提供 build/test/lint/test:e2e 脚本"
+    ],
+    "important_findings": [
+      "Deposit/VIP/ScoreShop/Yahoo/Sign/Activity/Translate/Chat 源码目录已经存在，说明当前不是从零新建，而是需要补齐迁移质量、数据模型、迁移脚本、测试和兼容性审查",
+      "数据库 migrations 目录未搜索到 deposits、vip_orders、user_levels、coupons、score_logs、user_coupons、yahoo_goods、yahoo_bids、sign_logs、activity_submissions 等表的迁移，存在实体已注册但数据库迁移缺口风险",
+      "测试覆盖很少，仅发现 app.controller.spec.ts 与 health.service.spec.ts，四个微任务缺少单元测试与集成测试",
+      "git status 显示已有未提交改动和未跟踪文件，Claude Code 执行前必须先确认改动归属，不得覆盖他人改动"
+    ]
+  },
+  "existing_module_survey_checklist": [
+    {
+      "micro_task": "1 押金系统 Deposit",
+      "existing_files": [
+        "src/deposit/deposit.module.ts",
+        "src/deposit/deposit.controller.ts",
+        "src/deposit/deposit.service.ts",
+        "src/deposit/deposit.entity.ts",
+        "src/deposit/dto/create-deposit.dto.ts",
+        "src/deposit/dto/list-deposit.dto.ts",
+        "src/deposit/dto/refund-deposit.dto.ts",
+        "src/users/user.entity.ts depositBalance 字段"
+      ],
+      "existing_apis": [
+        "POST /api/v1/deposit/create",
+        "POST /api/v1/deposit/list",
+        "GET /api/v1/deposit/balance",
+        "POST /api/v1/deposit/refund"
+      ],
+      "must_inspect_next": [
+        "deposit.service.ts 是否使用事务保证 deposits 流水与 users.deposit_balance 同步",
+        "createDeposit 是否已对接 payments/payment.entity 与 Stripe/Ping++ 回调闭环",
+        "refundDeposit 是否只是申请退款，还是实际发起支付通道退款",
+        "金额字段是否统一使用 string/Decimal 处理，避免 JS number 精度问题",
+        "是否存在后台审核退款/API 缺口",
+        "是否存在 database migration 缺口"
+      ],
+      "current_gap_level": "高"
+    },
+    {
+      "micro_task": "2 会员等级 + 积分商城",
+      "existing_files": [
+        "src/vip/vip.module.ts",
+        "src/vip/vip.controller.ts",
+        "src/vip/vip.service.ts",
+        "src/vip/entities/user-level.entity.ts",
+        "src/vip/entities/vip-order.entity.ts",
+        "src/vip/dto/buy-vip.dto.ts",
+        "src/score-shop/score-shop.module.ts",
+        "src/score-shop/score-shop.controller.ts",
+        "src/score-shop/score-shop.service.ts",
+        "src/score-shop/entities/coupon.entity.ts",
+        "src/score-shop/entities/user-coupon.entity.ts",
+        "src/score-shop/entities/score-log.entity.ts",
+        "src/users/user.entity.ts level/levelEndTime/score/scoreTotal 字段",
+        "src/sign/sign.module.ts 与积分获取链路相关"
+      ],
+      "existing_apis": [
+        "POST /api/v1/user/levels",
+        "POST /api/v1/user/vipbuy",
+        "POST /api/v1/score/shop/goods",
+        "POST /api/v1/score/shop/buy",
+        "POST /api/v1/score/shop/getcoupon",
+        "GET /api/v1/sign/index",
+        "POST /api/v1/sign/sign"
+      ],
+      "must_inspect_next": [
+        "VIP 购买后是否等支付成功才更新 users.level/level_end_time",
+        "VIP 续费/升级/降级规则是否与小程序一致",
+        "积分兑换是否使用数据库事务同时扣减 users.score、写 score_logs、扣 coupon.stock、生成 user_coupons",
+        "优惠券是否有过期、使用、订单绑定和重复领取约束",
+        "签到积分奖励是否与 score_logs 统一，避免绕过积分流水",
+        "是否存在 migration 和 seed 数据缺口"
+      ],
+      "current_gap_level": "高"
+    },
+    {
+      "micro_task": "3 Yahoo 竞拍系统",
+      "existing_files": [
+        "src/yahoo/yahoo.module.ts",
+        "src/yahoo/yahoo.controller.ts",
+        "src/yahoo/yahoo.goods.service.ts",
+        "src/yahoo/yahoo.bid.service.ts",
+        "src/yahoo/entities/yahoo-goods.entity.ts",
+        "src/yahoo/entities/yahoo-bid.entity.ts",
+        "src/yahoo/dto/goods-list.dto.ts",
+        "src/yahoo/dto/goods-detail.dto.ts",
+        "src/yahoo/dto/delivery-fee.dto.ts",
+        "src/yahoo/dto/create-bid.dto.ts",
+        "src/yahoo/dto/bid-list.dto.ts",
+        "src/integrations/yahoo.service.ts"
+      ],
+      "existing_apis": [
+        "GET /api/v1/yahoo/goods",
+        "GET /api/v1/yahoo/goods/:goodsNo",
+        "POST /api/v1/yahoo/bid",
+        "GET /api/v1/yahoo/bids/list",
+        "GET /api/v1/integrations/yahoo/search"
+      ],
+      "must_inspect_next": [
+        "竞拍出价是否校验押金余额/保证金规则",
+        "同一商品同一用户多次出价是否幂等或保留历史",
+        "YahooGoods 当前 active/ended/sold 状态是否与外部 Yahoo 同步任务闭环",
+        "结束竞拍后的 WON/LOST 状态结算任务是否存在",
+        "是否需要自动转订单/仓库入库/代购流程",
+        "是否存在 auction 反爬/限流/缓存策略",
+        "是否存在 migration 缺口"
+      ],
+      "current_gap_level": "高"
+    },
+    {
+      "micro_task": "4 客服/社区/好友代付/翻译等零散模块",
+      "existing_files": [
+        "src/chat/chat.module.ts",
+        "src/chat/chat.controller.ts",
+        "src/chat/chat.service.ts",
+        "src/translate/translate.module.ts",
+        "src/translate/translate.controller.ts",
+        "src/translate/translate.service.ts",
+        "src/activity/activity.module.ts",
+        "src/activity/activity.controller.ts",
+        "src/activity/activity.service.ts",
+        "src/activity/activity-submission.entity.ts",
+        "src/sign/sign.module.ts",
+        "src/sign/sign.controller.ts",
+        "src/sign/sign.service.ts",
+        "src/sign/sign-log.entity.ts"
+      ],
+      "existing_apis": [
+        "GET /api/v1/chat/kefu",
+        "POST /api/v1/translate/jp2zh",
+        "POST /api/v1/activity/submit",
+        "GET /api/v1/sign/index",
+        "POST /api/v1/sign/sign"
+      ],
+      "not_found_or_unclear": [
+        "社区模块未发现明确 community/posts/comments 目录或控制器",
+        "好友代付模块未发现明确 friend-pay/pay-for-me/share-pay 目录或控制器",
+        "客服当前看起来仅返回 kefu URL，未见工单/会话/消息落库模型"
+      ],
+      "must_inspect_next": [
+        "从小程序源码反查社区、好友代付、翻译、客服真实 API 名称与请求/响应结构",
+        "确认翻译服务是 mock、外部 API 还是静态映射；补限流和异常兜底",
+        "活动/社区提交图片字段格式是否需要数组化与对象存储集成",
+        "好友代付是否复用 payments/orders，还是需要独立 share token 与支付状态表",
+        "是否存在 migration 缺口"
+      ],
+      "current_gap_level": "中高"
+    }
+  ],
+  "recommended_data_models": {
+    "shared_principles": [
+      "金额字段数据库继续 decimal/numeric，服务层避免直接用 JS number 做复杂加减；至少统一用字符串入库或封装 money helper",
+      "所有余额/积分/库存变更必须用 TypeORM transaction + pessimistic lock 或原子 update 条件",
+      "外部支付与竞拍回调必须有幂等键：orderNo/outTradeNo/paymentId/goodsNo + userId",
+      "实体变更必须配套 TypeORM migration，不允许只依赖 synchronize",
+      "保留兼容小程序返回格式：老接口可继续 code/errmsg/data，新独立站内部可统一 success/data，但同一 controller 内尽量一致"
+    ],
+    "deposit": [
+      {
+        "table": "deposits",
+        "status": "已存在实体，需补 migration/事务/支付回调闭环",
+        "fields": ["id", "user_id", "amount", "status", "type", "order_no", "payment_id", "remark", "refund_reason", "refunded_at", "created_at", "updated_at"],
+        "suggested_additions": ["channel", "currency", "external_refund_id", "metadata jsonb", "approved_by", "approved_at"]
+      },
+      {
+        "table": "users",
+        "status": "已存在 deposit_balance",
+        "suggested_additions": ["如果押金与钱包未来扩大，建议拆 user_wallets 表；本批先不拆，避免大改"]
+      }
+    ],
+    "vip_and_score_shop": [
+      {
+        "table": "user_levels",
+        "status": "已存在实体，建议作为会员等级配置表",
+        "fields": ["id", "name", "level", "price", "image", "background_image", "privilege", "rate", "ship_rate", "store_days", "fee", "over_time_fee", "is_deleted"]
+      },
+      {
+        "table": "vip_orders",
+        "status": "已存在实体，需支付回调后更新会员状态",
+        "suggested_additions": ["status enum: pending/paid/cancelled/refunded", "paid_channel", "metadata jsonb"]
+      },
+      {
+        "table": "coupons/user_coupons/score_logs",
+        "status": "已存在实体，需补 migration、并发锁和兑换规则",
+        "suggested_additions": ["score_logs.reference_type/reference_id", "user_coupons.status 或沿用 is_used+expire", "coupon per_user_limit"]
+      },
+      {
+        "table": "users",
+        "status": "已存在 level/level_end_time/score/score_total",
+        "note": "本批可继续使用，后续如会员历史复杂再拆 user_memberships 表"
+      }
+    ],
+    "yahoo_auction": [
+      {
+        "table": "yahoo_goods",
+        "status": "已存在实体",
+        "suggested_additions": ["auction_start_at", "auction_end_at timestamp", "current_price", "buyout_price", "sync_status", "last_error", "version"]
+      },
+      {
+        "table": "yahoo_bids",
+        "status": "已存在实体",
+        "suggested_additions": ["bid_no/order_no", "deposit_hold_amount", "external_bid_id", "placed_at", "settled_at", "failure_reason", "unique(user_id, goods_no, price, created_date 可按业务决定)"]
+      },
+      {
+        "table": "deposit_holds 可选",
+        "status": "建议若押金冻结规则明确则新增；否则先在 yahoo_bids 记录 hold amount",
+        "fields": ["id", "user_id", "biz_type", "biz_id", "amount", "status", "created_at", "released_at"]
+      }
+    ],
+    "misc": [
+      {
+        "table": "activity_submissions/sign_logs",
+        "status": "已存在实体，需补 migration 与接口契约测试"
+      },
+      {
+        "table": "chat_sessions/chat_messages",
+        "status": "当前未见落库；如果只跳转第三方客服可不建表，如果要站内客服则新增"
+      },
+      {
+        "table": "community_posts/community_comments/community_likes",
+        "status": "当前未见模块；需先小程序反查后决定是否本批实现"
+      },
+      {
+        "table": "friend_pay_requests",
+        "status": "当前未见模块；建议新增 share_token、order_id、requester_user_id、payer_user_id nullable、amount、status、expired_at、paid_payment_id"
+      },
+      {
+        "table": "translation_logs 可选",
+        "status": "若需要审计/缓存翻译结果则新增；否则本批只增强 service 容错与限流"
+      }
+    ]
+  },
+  "api_list": {
+    "deposit": [
+      {"method": "POST", "path": "/api/v1/deposit/create", "auth": true, "status": "已有，需审计支付创建与幂等"},
+      {"method": "POST", "path": "/api/v1/deposit/list", "auth": true, "status": "已有，建议兼容分页 page/limit/status/type"},
+      {"method": "GET", "path": "/api/v1/deposit/balance", "auth": true, "status": "已有"},
+      {"method": "POST", "path": "/api/v1/deposit/refund", "auth": true, "status": "已有，需区分申请/审核/实际退款"},
+      {"method": "POST", "path": "/api/v1/deposit/refund/admin-review", "auth": "admin", "status": "建议新增或挂后台模块，非首批必须"}
+    ],
+    "vip_score_shop": [
+      {"method": "POST", "path": "/api/v1/user/levels", "auth": true, "status": "已有，命名兼容小程序"},
+      {"method": "POST", "path": "/api/v1/user/vipbuy", "auth": true, "status": "已有，需接支付回调闭环"},
+      {"method": "POST", "path": "/api/v1/score/shop/goods", "auth": true, "status": "已有"},
+      {"method": "POST", "path": "/api/v1/score/shop/buy", "auth": true, "status": "已有，需事务化"},
+      {"method": "POST", "path": "/api/v1/score/shop/getcoupon", "auth": true, "status": "已有"},
+      {"method": "GET", "path": "/api/v1/sign/index", "auth": true, "status": "已有，与积分获取相关"},
+      {"method": "POST", "path": "/api/v1/sign/sign", "auth": true, "status": "已有，与积分获取相关"},
+      {"method": "GET", "path": "/api/v1/score/logs", "auth": true, "status": "建议新增，方便前端积分明细"},
+      {"method": "GET", "path": "/api/v1/coupons/my", "auth": true, "status": "建议新增或复用现有订单优惠券接口"}
+    ],
+    "yahoo": [
+      {"method": "GET", "path": "/api/v1/yahoo/goods", "auth": false, "status": "已有"},
+      {"method": "GET", "path": "/api/v1/yahoo/goods/:goodsNo", "auth": "可选", "status": "已有，但当前未加 JwtAuthGuard，req.user 可能为空，只能算匿名详情"},
+      {"method": "POST", "path": "/api/v1/yahoo/bid", "auth": true, "status": "已有，需押金/出价/并发审计"},
+      {"method": "GET", "path": "/api/v1/yahoo/bids/list", "auth": true, "status": "已有"},
+      {"method": "POST", "path": "/api/v1/yahoo/sync", "auth": "admin/job", "status": "建议新增或放 integrations，同步 Yahoo 商品状态"},
+      {"method": "POST", "path": "/api/v1/yahoo/settle", "auth": "admin/job", "status": "建议新增或内部 job，用于竞拍结束结算"}
+    ],
+    "misc": [
+      {"method": "GET", "path": "/api/v1/chat/kefu", "auth": false, "status": "已有，返回客服 URL"},
+      {"method": "POST", "path": "/api/v1/translate/jp2zh", "auth": false, "status": "已有，需限流/错误兜底"},
+      {"method": "POST", "path": "/api/v1/activity/submit", "auth": true, "status": "已有"},
+      {"method": "POST", "path": "/api/v1/friend-pay/requests", "auth": true, "status": "建议新增，创建好友代付请求"},
+      {"method": "GET", "path": "/api/v1/friend-pay/requests/:token", "auth": false, "status": "建议新增，好友打开代付页"},
+      {"method": "POST", "path": "/api/v1/friend-pay/requests/:token/pay", "auth": "可匿名或登录", "status": "建议新增，发起支付"},
+      {"method": "GET", "path": "/api/v1/community/posts", "auth": false, "status": "待小程序反查确认"},
+      {"method": "POST", "path": "/api/v1/community/posts", "auth": true, "status": "待小程序反查确认"}
+    ]
+  },
+  "batch_implementation_order": [
+    {
+      "batch": "P0-准备批：只读审计与小程序接口反查",
+      "owner": "达摩院规划 + Claude Code 只读勘察",
+      "why_first": "当前源码中已有目标模块但 migrations/tests/业务闭环不明确，先避免重复造轮子或覆盖已有改动",
+      "deliverables": [
+        "生成 docs/migration-audit/miniprogram-backend-gap.md",
+        "列出小程序 API 到 NestJS API 的映射表",
+        "确认现有未提交改动归属"
+      ],
+      "code_change": false
+    },
+    {
+      "batch": "P1-押金系统 Deposit 加固",
+      "owner": "Claude Code /ship",
+      "why_second": "Yahoo 出价、VIP 购买、好友代付都可能依赖支付与余额，押金/钱包必须先稳定",
+      "deliverables": [
+        "deposits migration 或补齐迁移缺口",
+        "押金 service 事务化与幂等检查",
+        "支付回调/退款申请状态机梳理",
+        "Deposit 单元测试与关键集成测试"
+      ],
+      "code_change": true
+    },
+    {
+      "batch": "P2-会员等级 + 积分商城 + 签到积分统一",
+      "owner": "Claude Code /ship",
+      "why_third": "积分与优惠券会影响订单折扣，需在竞拍/代购订单联动前稳定",
+      "deliverables": [
+        "user_levels/vip_orders/coupons/user_coupons/score_logs/sign_logs migrations",
+        "VIP 支付成功后更新会员状态",
+        "积分兑换/领取/签到使用事务和流水",
+        "补积分明细/我的优惠券 API 如前端需要"
+      ],
+      "code_change": true
+    },
+    {
+      "batch": "P3-Yahoo 竞拍系统闭环",
+      "owner": "Claude Code /ship",
+      "why_fourth": "竞拍依赖押金规则与用户会员费率，必须在 P1/P2 后实现结算闭环",
+      "deliverables": [
+        "yahoo_goods/yahoo_bids migrations",
+        "出价校验、押金冻结/扣减策略、并发控制",
+        "竞拍结束同步/结算 job 或内部 API",
+        "我的竞拍列表状态映射与测试"
+      ],
+      "code_change": true
+    },
+    {
+      "batch": "P4-零散模块补齐：客服/社区/好友代付/翻译/活动",
+      "owner": "Claude Code /ship",
+      "why_last": "零散模块依赖小程序真实接口较多，且好友代付依赖支付/订单，放最后降低返工",
+      "deliverables": [
+        "客服 URL/站内客服取舍确认",
+        "翻译服务容错、限流、可选缓存",
+        "活动提交字段结构与图片处理统一",
+        "好友代付 request/token/pay/status 闭环",
+        "社区模块按小程序反查结果决定是否实现 MVP"
+      ],
+      "code_change": true
+    }
+  ],
+  "claude_code_ship_task_drafts": [
+    {
+      "batch": "P0-准备批",
+      "task_title": "只读审计小程序迁移缺口，不改代码",
+      "prompt": "Load gstack. 在 /Users/hulonghua/workspace/kangaroo-japan-backend 执行只读审计，不修改任何源码、不运行迁移、不部署。目标：围绕 Deposit、VIP+积分商城、Yahoo竞拍、客服/社区/好友代付/翻译四类模块，读取现有 src 目录、database migrations、tests，并从袋鼠君小程序源码（如本机可访问则搜索 doRequest/api 路径）反查接口契约。输出 docs/migration-audit/miniprogram-backend-gap.md，内容包含：现有文件清单、API映射、小程序缺口、migration缺口、测试缺口、每个模块建议修改文件。结束前只运行只读命令和 npm test -- --runInBand（若不需要数据库）。不得改数据库，不得部署，不得覆盖未提交改动。",
+      "max_turns": 20,
+      "verification": ["git diff 只应包含审计文档（如果允许写文档）", "npm test -- --runInBand 或说明为何跳过"]
+    },
+    {
+      "batch": "P1-押金系统 Deposit",
+      "task_title": "加固 Deposit 押金充值/余额/退款申请闭环",
+      "prompt": "Load gstack. 在 /Users/hulonghua/workspace/kangaroo-japan-backend 实现 Deposit 模块加固。先 git status，保护已有未提交改动。范围只允许修改 src/deposit/**、必要的 src/users/user.entity.ts、src/database/migrations/**、相关测试文件；不要部署，不要改 .env，不要执行真实数据库迁移。要求：1) 补 TypeORM migration 覆盖 deposits 表和 users.deposit_balance 如缺失；2) DepositService 所有余额变更使用 transaction，保证 deposits 流水和 users.deposit_balance 一致；3) createDeposit 生成幂等 orderNo，并明确 paymentId/status 流程；4) refundDeposit 只创建退款申请时不得直接扣余额，若当前逻辑不一致需修正；5) 补 create/list/balance/refund 单元测试，mock repository/transaction；6) 返回格式保持当前 API 兼容。完成后运行 npm test -- deposit 或 npm test -- --runInBand 以及 npm run build。",
+      "max_turns": 25,
+      "verification": ["npm run build 通过", "Deposit 相关测试通过", "未修改生产配置/未执行迁移"]
+    },
+    {
+      "batch": "P2-会员等级+积分商城",
+      "task_title": "补齐 VIP 会员购买、积分商城、签到积分事务与迁移",
+      "prompt": "Load gstack. 在 /Users/hulonghua/workspace/kangaroo-japan-backend 聚焦 src/vip/**、src/score-shop/**、src/sign/**、src/users/user.entity.ts、src/database/migrations/** 和测试。先 git status，保护已有未提交改动。要求：1) 补 user_levels/vip_orders/coupons/user_coupons/score_logs/sign_logs 相关 migration；2) VIP buy 只创建订单，会员生效必须通过支付成功/可测试的 markPaid 方法触发；3) 积分兑换和免费领券使用 transaction，扣分、写 score_logs、扣库存、生成 user_coupon 必须原子化；4) 签到奖励积分必须写 score_logs；5) 增加 score logs 或 my coupons API 仅在不破坏旧接口前提下实现；6) 补 service 单测覆盖积分不足、库存不足、重复领取、签到重复。完成后 npm test -- --runInBand 与 npm run build。不得部署、不得改数据库。",
+      "max_turns": 25,
+      "verification": ["npm run build 通过", "VIP/ScoreShop/Sign 测试通过", "旧接口路径保持兼容"]
+    },
+    {
+      "batch": "P3-Yahoo竞拍系统",
+      "task_title": "Yahoo 商品/出价/结算迁移闭环规划内实现",
+      "prompt": "Load gstack. 在 /Users/hulonghua/workspace/kangaroo-japan-backend 聚焦 src/yahoo/**、必要的 src/deposit/** 只调用公共方法、src/database/migrations/** 和测试。先 git status。要求：1) 补 yahoo_goods/yahoo_bids migration；2) 出价前校验商品 active、endTime/leftTimestamp、最低加价、用户押金/冻结规则；3) 使用 transaction/锁避免并发出价错乱；4) 维护 YahooBid status: bidding/won/lost/cancelled；5) 如外部 Yahoo API 不可用，抽象 provider 并在测试中 mock；6) 增加 bid/list/detail 的单元测试。不得部署，不得执行真实竞拍，不得改生产配置。完成后 npm test -- --runInBand 与 npm run build。",
+      "max_turns": 25,
+      "verification": ["npm run build 通过", "Yahoo 测试通过", "无真实外部竞拍副作用"]
+    },
+    {
+      "batch": "P4-零散模块",
+      "task_title": "客服/翻译/活动/好友代付/社区模块补齐 MVP",
+      "prompt": "Load gstack. 在 /Users/hulonghua/workspace/kangaroo-japan-backend 处理零散模块，优先从小程序接口契约反查，不确定处先写 TODO 文档并保持最小实现。范围：src/chat/**、src/translate/**、src/activity/**、可新增 src/friend-pay/**、src/community/**、src/database/migrations/**、测试。要求：1) chat/kefu 保持兼容，若只返回 URL 则补测试和配置化；2) translate/jp2zh 增加错误兜底、限流意识和 service mock 测试；3) activity submit 明确 pictures 格式并补 migration/test；4) 好友代付实现 request/token/pay/status MVP，复用 payments/orders，不真实扣款；5) 社区模块若小程序有明确接口则实现帖子列表/发布/评论 MVP，否则只输出 gap 文档不硬编；6) npm test -- --runInBand 与 npm run build。不得部署、不得改数据库。",
+      "max_turns": 25,
+      "verification": ["npm run build 通过", "新增模块测试通过", "不确定接口已写入 gap 文档而不是猜测实现"]
+    }
+  ],
+  "risks": [
+    {
+      "risk": "已有源码模块与迁移脚本不一致",
+      "impact": "应用启动时实体存在但数据库表不存在，线上接口 500",
+      "mitigation": "每批第一步补 migration，但只生成/测试，不直接执行生产 DB 迁移"
+    },
+    {
+      "risk": "当前工作区已有未提交改动",
+      "impact": "Claude Code 可能覆盖他人工作",
+      "mitigation": "所有 /ship 任务第一步 git status；只改限定目录；完成汇报 diff"
+    },
+    {
+      "risk": "金额和积分并发更新不安全",
+      "impact": "押金余额、积分、优惠券库存、竞拍出价可能错账",
+      "mitigation": "使用 transaction + row lock/条件 update；关键路径加幂等键和测试"
+    },
+    {
+      "risk": "支付回调闭环缺失",
+      "impact": "VIP/押金订单创建成功但状态不生效，或重复生效",
+      "mitigation": "支付成功统一通过 payment webhook/内部 markPaid 方法，按 outTradeNo/paymentId 幂等处理"
+    },
+    {
+      "risk": "小程序 API 契约未完整反查",
+      "impact": "独立站前端或小程序兼容层调用失败",
+      "mitigation": "P0 先做 doRequest/api 路径映射；返回格式保持 code/errmsg/data 与 success/data 双兼容"
+    },
+    {
+      "risk": "Yahoo 外部竞拍存在真实副作用和反爬限制",
+      "impact": "测试/开发误触真实出价或被封禁",
+      "mitigation": "外部 Yahoo provider 必须 mock；开发环境禁用真实出价；生产开关单独审批"
+    },
+    {
+      "risk": "社区/好友代付需求边界不清",
+      "impact": "实现过度或接口不匹配",
+      "mitigation": "P4 前必须完成小程序源码反查；不确定功能只落 gap 文档，不猜测大改"
+    }
+  ],
+  "review_gate_before_each_ship": [
+    "确认任务记录 TASK-2026-0426-005 状态仍为进行中且微任务未被别人完成",
+    "确认 git status，记录已有改动归属",
+    "确认不修改 .env/.env.production/部署配置",
+    "确认不执行真实 DB migration，只允许生成 migration 文件和本地 build/test",
+    "确认每批结束有 npm run build 和相关测试结果",
+    "交给 Codex gpt-5.5 做验证：codex exec -m gpt-5.5 '请审查本批 diff，重点检查事务、迁移、接口兼容和测试覆盖'"
+  ]
+}
