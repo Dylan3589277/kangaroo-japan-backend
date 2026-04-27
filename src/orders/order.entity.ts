@@ -2,32 +2,35 @@
  * 订单状态流转文档
  *
  * 状态说明：
- *   PENDING     (待支付)   — 订单已创建，等待用户完成支付
- *   PAID        (已支付)   — 支付成功，等待运营人员处理
- *   PROCESSING  (处理中)   — 运营人员已接单，正在日本代购商品
- *   PURCHASED   (已代购)   — 商品已在日本购买完毕，等待发货
- *   SHIPPED     (已发货)   — 商品已从日本发出，物流单号已录入
- *   IN_TRANSIT  (运输中)   — 包裹正在国际运输途中
- *   DELIVERED   (已送达)   — 包裹已签收送达
- *   CANCELLED   (已取消)   — 订单已取消（支付前或支付后退款前）
- *   REFUNDED    (已退款)   — 退款已处理完成
+ *   PENDING    (待支付)   — 订单已创建，等待用户完成支付
+ *   PAID       (已支付)   — 支付成功，等待运营人员处理
+ *   PROCESSING (处理中)   — 运营人员已接单，正在处理商品
+ *   SHIPPED    (已发货)   — 商品已发出，物流单号已录入
+ *   DELIVERED  (已送达)   — 包裹已签收送达
+ *   COMPLETED  (已完成)   — 用户确认收货，订单最终完成
+ *   CANCELLED  (已取消)   — 订单已取消（支付前用户取消或支付后运营取消）
+ *   REFUNDING  (退款中)   — 退款申请已提交，正在处理中
+ *   REFUNDED   (已退款)   — 退款已处理完成
  *
  * 合法状态流转路径：
  *
  *   正常履约流程：
- *     PENDING → PAID → PROCESSING → PURCHASED → SHIPPED → IN_TRANSIT → DELIVERED
+ *     PENDING → PAID → PROCESSING → SHIPPED → DELIVERED → COMPLETED
  *
- *   取消/退款流程：
- *     PENDING   → CANCELLED   （未支付前用户主动取消）
- *     PAID      → CANCELLED   （已支付但未开始代购，运营取消）
- *     PAID      → REFUNDED    （直接退款，不经过 CANCELLED）
- *     PROCESSING → CANCELLED  （代购过程中异常，运营取消并退款前置状态）
- *     PROCESSING → REFUNDED
- *     PURCHASED → REFUNDED    （已购买但无法发货时退款）
+ *   取消流程：
+ *     PENDING    → CANCELLED  （未支付前用户主动取消）
+ *     PAID       → CANCELLED  （已支付但未开始处理，运营取消）
+ *     PROCESSING → CANCELLED  （处理过程中异常，运营取消）
+ *
+ *   退款流程：
+ *     PAID       → REFUNDING → REFUNDED  （支付后申请退款）
+ *     PROCESSING → REFUNDING → REFUNDED  （处理中申请退款）
+ *     SHIPPED    → REFUNDING → REFUNDED  （发货后申请退款）
+ *     DELIVERED  → REFUNDING → REFUNDED  （收货后申请退款）
+ *     CANCELLED  → REFUNDING → REFUNDED  （取消后触发退款）
  *
  *   禁止的流转（不可逆）：
- *     SHIPPED / IN_TRANSIT / DELIVERED → 任何其他状态
- *     CANCELLED / REFUNDED → 任何其他状态
+ *     COMPLETED / REFUNDED → 任何其他状态
  */
 import {
   Entity,

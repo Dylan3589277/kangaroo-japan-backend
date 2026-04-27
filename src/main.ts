@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { json, type Request, type Response, type NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import { CacheControlInterceptor } from './common/cache-control.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -16,6 +17,38 @@ async function bootstrap() {
       const requestId = (req.headers['x-request-id'] as string) || uuidv4();
       req.id = requestId;
       res.setHeader('X-Request-ID', requestId);
+      next();
+    },
+  );
+
+  // Accept-Language middleware — detect client language preference
+  const supportedLocales = ['zh', 'en', 'ja', 'th', 'vi', 'id'];
+  app.use(
+    (req: Request, res: Response, next: NextFunction) => {
+      const acceptLanguage = req.headers['accept-language'] || '';
+      let detectedLocale = 'zh'; // default
+
+      if (acceptLanguage) {
+        // Parse Accept-Language header (e.g. "en-US,en;q=0.9,zh;q=0.8")
+        const locales = acceptLanguage
+          .split(',')
+          .map((l) => {
+            const [lang, q = '1'] = l.trim().split(';q=');
+            return { lang: lang.split('-')[0].toLowerCase(), q: parseFloat(q) || 1 };
+          })
+          .sort((a, b) => b.q - a.q);
+
+        for (const locale of locales) {
+          if (supportedLocales.includes(locale.lang)) {
+            detectedLocale = locale.lang;
+            break;
+          }
+        }
+      }
+
+      res.setHeader('X-Content-Language', detectedLocale);
+      // Also store on request for potential later use by controllers
+      (req as any).detectedLocale = detectedLocale;
       next();
     },
   );
@@ -67,6 +100,9 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  // Global Cache-Control interceptor (GET → 60s cache, mutations → no-store)
+  app.useGlobalInterceptors(new CacheControlInterceptor());
 
   // NOTE: Do NOT set global prefix here — all controllers already include 'api/v1/' in their @Controller() decorator.
   // app.setGlobalPrefix('api/v1');

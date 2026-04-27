@@ -25,8 +25,12 @@ if (require.main === module) {
   };
   
   if (dbUrl) {
-    // Parse postgresql://user:password@host:port/database
-    const match = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
+    // 检测是否需要 SSL
+    const needsSsl = dbUrl.includes('sslmode=') || dbUrl.includes('ssl=');
+    const sslMode = dbUrl.match(/sslmode=([^&\s]+)/)?.[1] || 'prefer';
+    
+    // Parse postgresql://user:***@host:port/database (with optional query params)
+    const match = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/([^?]+)/);
     if (match) {
       config = {
         ...config,
@@ -36,6 +40,16 @@ if (require.main === module) {
         port: parseInt(match[4], 10),
         database: match[5],
       };
+      // Prisma Data Platform requires SSL
+      if (needsSsl) {
+        config.ssl = sslMode === 'require' || sslMode === 'verify-full' 
+          ? { rejectUnauthorized: false }
+          : true;
+        console.log(`🔒 SSL mode: ${sslMode}`);
+      }
+    } else {
+      // 如果 regex 不匹配，直接使用 URL
+      config.url = dbUrl;
     }
   } else {
     config = {

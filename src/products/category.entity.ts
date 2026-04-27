@@ -39,6 +39,18 @@ export class Category {
   @Column({ length: 100, name: "name_ja" })
   nameJa: string;
 
+  @Column({ length: 100, nullable: true, name: "name_ko" })
+  nameKo: string;
+
+  @Column({ length: 100, nullable: true, name: "name_th" })
+  nameTh: string;
+
+  @Column({ length: 100, nullable: true, name: "name_id" })
+  nameId: string;
+
+  @Column({ length: 100, nullable: true, name: "name_vi" })
+  nameVi: string;
+
   @Column({ nullable: true, name: "icon_url" })
   iconUrl: string;
 

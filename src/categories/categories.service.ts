@@ -28,6 +28,12 @@ export class CategoriesService {
     return this.formatCategory(category, lang);
   }
 
+  async getCategoryBySlug(slug: string, lang = "zh") {
+    const category = await this.categoriesRepository.findOne({ where: { slug, isActive: true } });
+    if (!category) return null;
+    return this.formatCategory(category, lang);
+  }
+
   async getProductsByCategory(categoryId: string, query: any) {
     const { lang = "zh", page = 1, limit = 20, sort = "createdAt_desc" } = query;
 
@@ -64,16 +70,31 @@ export class CategoriesService {
   }
 
   private formatCategory(category: Category, lang: string) {
-    const nameKey = `name${lang.charAt(0).toUpperCase() + lang.slice(1)}` as "nameZh" | "nameEn" | "nameJa";
+    const nameKey = `name${lang.charAt(0).toUpperCase() + lang.slice(1)}` as
+      | "nameZh"
+      | "nameEn"
+      | "nameJa"
+      | "nameKo"
+      | "nameTh"
+      | "nameId"
+      | "nameVi";
     return {
       id: category.id,
       parentId: category.parentId,
       level: category.level,
       sortOrder: category.sortOrder,
-      name: category[nameKey] || category.nameZh || category.nameJa || category.nameEn,
+      name:
+        category[nameKey] ||
+        category.nameZh ||
+        category.nameJa ||
+        category.nameEn,
       nameZh: category.nameZh,
       nameEn: category.nameEn,
       nameJa: category.nameJa,
+      nameKo: category.nameKo,
+      nameTh: category.nameTh,
+      nameId: category.nameId,
+      nameVi: category.nameVi,
       iconUrl: category.iconUrl,
       path: category.path || [],
       isActive: category.isActive,
@@ -82,7 +103,7 @@ export class CategoriesService {
   }
 
   private formatProduct(product: Product, lang: string) {
-    const titleKey = `title${lang.charAt(0).toUpperCase() + lang.slice(1)}` as "titleZh" | "titleEn" | "titleJa";
+    const titleKey = `title${lang.charAt(0).toUpperCase() + lang.slice(1)}` as "titleZh" | "titleEn" | "titleJa" | "titleTh" | "titleVi" | "titleId";
     const platformNames: Record<string, Record<string, string>> = {
       amazon: { zh: "亚马逊", en: "Amazon", ja: "アマゾン" },
       mercari: { zh: "Mercari", en: "Mercari", ja: "メルカリ" },

@@ -68,6 +68,27 @@ export class Product {
   @Column({ type: "text", nullable: true, name: "description_ja" })
   descriptionJa: string;
 
+  // 泰语
+  @Column({ type: "text", nullable: true, name: "title_th" })
+  titleTh: string;
+
+  @Column({ type: "text", nullable: true, name: "description_th" })
+  descriptionTh: string;
+
+  // 越南语
+  @Column({ type: "text", nullable: true, name: "title_vi" })
+  titleVi: string;
+
+  @Column({ type: "text", nullable: true, name: "description_vi" })
+  descriptionVi: string;
+
+  // 印尼语
+  @Column({ type: "text", nullable: true, name: "title_id" })
+  titleId: string;
+
+  @Column({ type: "text", nullable: true, name: "description_id" })
+  descriptionId: string;
+
   // 价格 (JPY 基准)
   @Column({ type: "decimal", precision: 12, scale: 2, name: "price_jpy" })
   priceJpy: number;

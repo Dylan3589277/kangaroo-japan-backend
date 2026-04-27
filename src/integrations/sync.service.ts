@@ -243,6 +243,52 @@ export class SyncService {
   }
 
   /**
+   * 翻译商品多语言标题 - 自动补全框架
+   * 在同步时调用，检测 titleEn/titleJa 是否为空，如果为空则跳过。
+   * 如果有英文/日文标题，可用翻译API自动补全多语言标题。
+   */
+  async translateProductTitles(product: Product): Promise<void> {
+    // 检查是否有源语言标题可供翻译
+    const sourceTitle = product.titleEn || product.titleJa || product.titleZh;
+    if (!sourceTitle) {
+      this.logger.warn(`Skipping translation for product ${product.id}: no source title available`);
+      return;
+    }
+
+    // 检查各目标语言标题是否已存在，只翻译缺失的
+    const targetLanguages: Array<{
+      titleKey: keyof Product;
+      descKey: keyof Product;
+      locale: string;
+    }> = [
+      { titleKey: 'titleTh' as keyof Product, descKey: 'descriptionTh' as keyof Product, locale: 'th' },
+      { titleKey: 'titleVi' as keyof Product, descKey: 'descriptionVi' as keyof Product, locale: 'vi' },
+      { titleKey: 'titleId' as keyof Product, descKey: 'descriptionId' as keyof Product, locale: 'id' },
+    ];
+
+    const updates: Partial<Product> = {};
+
+    for (const target of targetLanguages) {
+      if (!product[target.titleKey] || !product[target.descKey]) {
+        // TODO: 接入翻译API（如DeepL、Google Translate）
+        // const translatedTitle = await translate(sourceTitle, target.locale);
+        // const translatedDesc = sourceDescription
+        //   ? await translate(sourceDescription, target.locale)
+        //   : null;
+        // updates[target.titleKey] = translatedTitle;
+        // updates[target.descKey] = translatedDesc;
+        this.logger.log(
+          `[translateProductTitles] Would translate ${target.locale} for product ${product.id}`,
+        );
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await this.productRepository.update(product.id, updates);
+    }
+  }
+
+  /**
    * 刷新商品价格 (从各平台)
    */
   async refreshPrices(): Promise<number> {

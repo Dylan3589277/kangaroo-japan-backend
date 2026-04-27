@@ -127,7 +127,7 @@ export class ProductsService {
     // 修复 TypeORM leftJoin getMany() bug：不使用 leftJoinAndSelect，改用独立查询
     const qb = this.productsRepository.createQueryBuilder('product');
     qb.where(
-      `product.title_zh ILIKE :q OR product.title_en ILIKE :q OR product.title_ja ILIKE :q OR product.description_zh ILIKE :q OR product.description_en ILIKE :q OR product.description_ja ILIKE :q`,
+      `product.title_zh ILIKE :q OR product.title_en ILIKE :q OR product.title_ja ILIKE :q OR product.title_th ILIKE :q OR product.title_vi ILIKE :q OR product.title_id ILIKE :q OR product.description_zh ILIKE :q OR product.description_en ILIKE :q OR product.description_ja ILIKE :q OR product.description_th ILIKE :q OR product.description_vi ILIKE :q OR product.description_id ILIKE :q`,
       { q: `%${query}%` },
     );
     qb.andWhere('product.status = :status', { status: ProductStatus.ACTIVE });
@@ -291,12 +291,18 @@ export class ProductsService {
     const titleKey = `title${lang.charAt(0).toUpperCase() + lang.slice(1)}` as
       | 'titleZh'
       | 'titleEn'
-      | 'titleJa';
+      | 'titleJa'
+      | 'titleTh'
+      | 'titleVi'
+      | 'titleId';
     const descKey =
       `description${lang.charAt(0).toUpperCase() + lang.slice(1)}` as
         | 'descriptionZh'
         | 'descriptionEn'
-        | 'descriptionJa';
+        | 'descriptionJa'
+        | 'descriptionTh'
+        | 'descriptionVi'
+        | 'descriptionId';
 
     // 平台名称映射
     const platformNames: Record<string, Record<string, string>> = {
@@ -305,6 +311,14 @@ export class ProductsService {
       rakuten: { zh: '乐天', en: 'Rakuten', ja: '楽天' },
       yahoo: { zh: 'Yahoo', en: 'Yahoo', ja: 'Yahoo!オークション' },
     };
+
+    // 本地货币价格计算（基于 exchangeRateUsed 或固定汇率）
+    const jpyPrice = Number(product.priceJpy) || 0;
+    const exchangeRate = Number(product.exchangeRateUsed) || 0;
+    // 固定汇率用于目标货币（当 exchangeRateUsed 无对应值时）
+    const pricePhp = Math.round(jpyPrice * 0.36 * 100) / 100;
+    const priceMyr = Math.round(jpyPrice * 0.031 * 100) / 100;
+    const priceSgd = Math.round(jpyPrice * 0.0093 * 100) / 100;
 
     return {
       id: product.id,
@@ -320,6 +334,9 @@ export class ProductsService {
       titleZh: product.titleZh,
       titleEn: product.titleEn,
       titleJa: product.titleJa,
+      titleTh: product.titleTh,
+      titleVi: product.titleVi,
+      titleId: product.titleId,
       description:
         product[descKey] ||
         product.descriptionZh ||
@@ -328,11 +345,17 @@ export class ProductsService {
       descriptionZh: product.descriptionZh,
       descriptionEn: product.descriptionEn,
       descriptionJa: product.descriptionJa,
-      priceJpy: Number(product.priceJpy),
+      descriptionTh: product.descriptionTh,
+      descriptionVi: product.descriptionVi,
+      descriptionId: product.descriptionId,
+      priceJpy: jpyPrice,
       priceCny: Number(product.priceCny) || 0,
       priceUsd: Number(product.priceUsd) || 0,
+      pricePhp,
+      priceMyr,
+      priceSgd,
       currency: product.currency,
-      exchangeRateUsed: Number(product.exchangeRateUsed) || 0,
+      exchangeRateUsed: exchangeRate,
       images: product.images || [],
       imagesCount: product.imagesCount || 0,
       categoryId: product.categoryId,
@@ -358,7 +381,11 @@ export class ProductsService {
     const nameKey = `name${lang.charAt(0).toUpperCase() + lang.slice(1)}` as
       | 'nameZh'
       | 'nameEn'
-      | 'nameJa';
+      | 'nameJa'
+      | 'nameKo'
+      | 'nameTh'
+      | 'nameId'
+      | 'nameVi';
     return {
       id: category.id,
       parentId: category.parentId,
@@ -372,6 +399,10 @@ export class ProductsService {
       nameZh: category.nameZh,
       nameEn: category.nameEn,
       nameJa: category.nameJa,
+      nameKo: category.nameKo,
+      nameTh: category.nameTh,
+      nameId: category.nameId,
+      nameVi: category.nameVi,
       iconUrl: category.iconUrl,
       path: category.path || [],
       isActive: category.isActive,
