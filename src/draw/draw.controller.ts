@@ -25,6 +25,11 @@ export class DrawController {
   @Get('index')
   @HttpCode(HttpStatus.OK)
   async index(@Req() req: AuthenticatedRequest) {
+    // 如果已登录则带用户积分，未登录则 userScore=0
+    if (req.user?.id) {
+      const result = await this.drawService.getIndexWithUser(req.user.id);
+      return { code: 0, data: result };
+    }
     const result = await this.drawService.getIndex();
     return { code: 0, data: result };
   }

@@ -14,6 +14,7 @@ export class DrawTables1746100000000 implements MigrationInterface {
         run_type VARCHAR(16) DEFAULT 'year',
         rundate VARCHAR(64) DEFAULT '',
         status INT DEFAULT 1,
+        daily_limit INT DEFAULT 0,
         created_at TIMESTAMP NOT NULL DEFAULT now(),
         updated_at TIMESTAMP NOT NULL DEFAULT now()
       );
@@ -55,8 +56,12 @@ export class DrawTables1746100000000 implements MigrationInterface {
     `);
 
     // 索引
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_draw_logs_user ON draw_logs(user_id)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_draw_prizes_activity ON draw_prizes(activity_id)`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_draw_logs_user ON draw_logs(user_id)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_draw_prizes_activity ON draw_prizes(activity_id)`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

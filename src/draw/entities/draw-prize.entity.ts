@@ -14,6 +14,7 @@ export enum DrawPrizeType {
 }
 
 @Entity('draw_prizes')
+@Index('idx_draw_prizes_activity', ['activityId'])
 export class DrawPrize {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -36,10 +37,20 @@ export class DrawPrize {
   @Column({ name: 'cover', type: 'text', nullable: true })
   cover: string;
 
-  @Column({ name: 'prize', length: 64, default: '0', comment: '奖品ID(优惠券ID/积分数量)' })
+  @Column({
+    name: 'prize',
+    length: 64,
+    default: '0',
+    comment: '奖品ID(优惠券ID/积分数量)',
+  })
   prize: string;
 
-  @Column({ name: 'rate', type: 'int', default: 0, comment: '概率权重(越小越优先)' })
+  @Column({
+    name: 'rate',
+    type: 'int',
+    default: 0,
+    comment: '概率权重(越小越优先)',
+  })
   rate: number;
 
   @Column({ name: 'number', type: 'int', default: 0, comment: '总库存' })

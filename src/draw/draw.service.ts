@@ -32,7 +32,7 @@ export class DrawService {
   ) {}
 
   /**
-   * 获取抽奖首页配置
+   * 获取抽奖首页配置（无需登录）
    */
   async getIndex(): Promise<{
     activity: DrawActivity | null;
@@ -50,6 +50,30 @@ export class DrawService {
     });
 
     return { activity, prizes, userScore: 0 };
+  }
+
+  /**
+   * 获取抽奖首页配置（带用户积分）
+   */
+  async getIndexWithUser(userId: string): Promise<{
+    activity: DrawActivity | null;
+    prizes: DrawPrize[];
+    userScore: number;
+  }> {
+    const activity = await this.activityRepository.findOne({
+      where: { status: 1 },
+      order: { createdAt: 'DESC' },
+    });
+
+    const prizes = await this.prizeRepository.find({
+      where: { isDeleted: 0 },
+      order: { rate: 'ASC' },
+    });
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    const userScore = Number(user?.score || 0);
+
+    return { activity, prizes, userScore };
   }
 
   /**
@@ -94,7 +118,21 @@ export class DrawService {
         }
       }
 
-      // 3. 锁定用户积分
+      // 3. 检查每日抽奖限制
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayCount = await manager.count(DrawLog, {
+        where: {
+          userId,
+          activityId: activity.id,
+          createdAt: todayStart,
+        },
+      });
+      if (activity.dailyLimit > 0 && todayCount >= activity.dailyLimit) {
+        throw new BadRequestException('今日抽奖次数已用完');
+      }
+
+      // 4. 锁定用户积分
       const user = await manager.findOne(User, {
         where: { id: userId },
         lock: { mode: 'pessimistic_write' },
@@ -109,9 +147,9 @@ export class DrawService {
         throw new BadRequestException('剩余积分不足');
       }
 
-      // 4. 获取奖品列表
+      // 5. 获取该活动的奖品列表（按 activityId 范围）
       const prizes = await manager.find(DrawPrize, {
-        where: { isDeleted: 0 },
+        where: { isDeleted: 0, activityId: activity.id },
         order: { rate: 'ASC' },
       });
 
@@ -119,10 +157,9 @@ export class DrawService {
         throw new BadRequestException('暂无奖品配置');
       }
 
-      // 5. 检查总库存，不足则重置
+      // 6. 检查总库存，不足则重置（按 activityId 范围）
       const totalLeft = prizes.reduce((s, p) => s + p.leftNumber, 0);
       if (totalLeft <= 0) {
-        // 重置库存
         for (const prize of prizes) {
           prize.leftNumber = prize.number;
           prize.sales = 0;
@@ -130,18 +167,21 @@ export class DrawService {
         }
       }
 
-      // 6. 重新检查库存
+      // 7. 重新获取库存
       const refreshedPrizes = await manager.find(DrawPrize, {
-        where: { isDeleted: 0 },
+        where: { isDeleted: 0, activityId: activity.id },
         order: { rate: 'ASC' },
       });
 
-      const freshTotalLeft = refreshedPrizes.reduce((s, p) => s + p.leftNumber, 0);
+      const freshTotalLeft = refreshedPrizes.reduce(
+        (s, p) => s + p.leftNumber,
+        0,
+      );
       if (freshTotalLeft <= 0) {
         throw new BadRequestException('库存不足');
       }
 
-      // 7. 概率抽奖（抽奖箱算法）
+      // 8. 概率抽奖（抽奖箱算法：按剩余库存权重）
       const drawBox: number[] = [];
       for (let i = 0; i < refreshedPrizes.length; i++) {
         const prize = refreshedPrizes[i];
@@ -156,12 +196,12 @@ export class DrawService {
       const randomIndex = Math.floor(Math.random() * drawBox.length);
       const wonPrize = refreshedPrizes[drawBox[randomIndex]];
 
-      // 8. 扣积分
+      // 9. 扣积分
       const beforeScore = userScore;
       const afterScore = beforeScore - activity.price;
       await manager.update(User, { id: userId }, { score: afterScore });
 
-      // 9. 写积分流水
+      // 10. 写积分流水（扣分）
       const scoreLog = manager.create(ScoreLog, {
         userId,
         amount: -activity.price,
@@ -172,14 +212,13 @@ export class DrawService {
       });
       await manager.save(scoreLog);
 
-      // 10. 扣减奖品库存
+      // 11. 扣减奖品库存
       wonPrize.leftNumber -= 1;
       wonPrize.sales += 1;
       await manager.save(wonPrize);
 
-      // 11. 发放奖品
+      // 12. 发放奖品
       if (wonPrize.type === DrawPrizeType.COUPON) {
-        // 查找优惠券定义并发放
         const coupon = await manager.findOne(Coupon, {
           where: { id: wonPrize.prize },
         });
@@ -193,15 +232,17 @@ export class DrawService {
             condition: coupon.condition ?? '',
             data: coupon.data ?? '',
             isUsed: false,
-            expireDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30天有效期
+            expireDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           });
           await manager.save(userCoupon);
         }
       } else if (wonPrize.type === DrawPrizeType.SCORE) {
         const rewardScore = Number(wonPrize.prize) || 0;
         if (rewardScore > 0) {
-          const newScore = afterScore + rewardScore;
-          await manager.update(User, { id: userId }, { score: newScore });
+          // 修复：用净额计算——抽奖扣分后的剩余 + 奖励积分 = 最终积分
+          // 不重复查询数据库，直接基于 afterScore 计算
+          const finalScore = afterScore + rewardScore;
+          await manager.update(User, { id: userId }, { score: finalScore });
 
           const rewardLog = manager.create(ScoreLog, {
             userId,
@@ -209,13 +250,13 @@ export class DrawService {
             type: 'draw',
             remark: `抽奖奖励(${wonPrize.name})`,
             beforeScore: afterScore,
-            afterScore: newScore,
+            afterScore: finalScore,
           });
           await manager.save(rewardLog);
         }
       }
 
-      // 12. 写抽奖记录
+      // 13. 写抽奖记录
       const log = manager.create(DrawLog, {
         userId,
         activityId: activity.id,
@@ -240,7 +281,10 @@ export class DrawService {
   /**
    * 抽奖记录
    */
-  async getLogs(userId: string, page: number): Promise<{ list: DrawLog[]; total: number }> {
+  async getLogs(
+    userId: string,
+    page: number,
+  ): Promise<{ list: DrawLog[]; total: number }> {
     const limit = 20;
     const skip = (page - 1) * limit;
 
