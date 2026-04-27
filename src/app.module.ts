@@ -54,6 +54,8 @@ import { ActivityModule } from './activity/activity.module';
 import { TranslateModule } from './translate/translate.module';
 import { ChatModule } from './chat/chat.module';
 import { DrawModule } from './draw/draw.module';
+import { CommunityModule } from './community/community.module';
+import { Community } from './community/entities/community.entity';
 import { DrawActivity } from './draw/entities/draw-activity.entity';
 import { DrawPrize } from './draw/entities/draw-prize.entity';
 import { DrawLog } from './draw/entities/draw-log.entity';
@@ -109,6 +111,7 @@ import { DrawLog } from './draw/entities/draw-log.entity';
           DrawActivity,
           DrawPrize,
           DrawLog,
+          Community,
         ],
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get('database.logging'),
@@ -141,6 +144,7 @@ import { DrawLog } from './draw/entities/draw-log.entity';
     TranslateModule,
     ChatModule,
     DrawModule,
+    CommunityModule,
   ],
   controllers: [AppController],
   providers: [
