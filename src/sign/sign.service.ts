@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, LessThanOrEqual } from 'typeorm';
 import { SignLog } from './sign-log.entity';
 import { User } from '../users/user.entity';
+import { ScoreLog } from '../score-shop/entities/score-log.entity';
 
 @Injectable()
 export class SignService {
@@ -14,6 +15,8 @@ export class SignService {
     private signLogRepository: Repository<SignLog>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(ScoreLog)
+    private scoreLogRepository: Repository<ScoreLog>,
     private dataSource: DataSource,
   ) {}
 
@@ -84,6 +87,15 @@ export class SignService {
     const score = this.SCORE_RULES[dayIndex - 1];
 
     await this.dataSource.transaction(async (manager) => {
+      // 查询用户当前积分（用于写流水）
+      const user = await manager.findOne(User, {
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const beforeScore = user ? Number(user.score || 0) : 0;
+      const afterScore = beforeScore + score;
+
+      // 写签到日志
       const log = this.signLogRepository.create({
         userId,
         signDate: today,
@@ -92,6 +104,7 @@ export class SignService {
       });
       await manager.save(log);
 
+      // 更新用户积分
       await manager
         .createQueryBuilder()
         .update(User)
@@ -101,6 +114,17 @@ export class SignService {
         })
         .where('id = :id', { id: userId })
         .execute();
+
+      // 写积分流水
+      const scoreLog = this.scoreLogRepository.create({
+        userId,
+        amount: score,
+        type: 'sign',
+        remark: `签到奖励 第${dayIndex}天`,
+        beforeScore,
+        afterScore,
+      });
+      await manager.save(scoreLog);
     });
 
     return { code: 0, errmsg: `签到成功，获得${score}积分` };

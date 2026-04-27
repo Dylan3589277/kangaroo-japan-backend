@@ -146,9 +146,19 @@ export class ScoreShopService {
    */
   async getCoupon(userId: string, couponId: string, type: string): Promise<{ userCoupon: UserCoupon }> {
     return await this.dataSource.transaction(async (manager) => {
-      // 查找优惠券定义
+      // 锁定用户行，防止并发重复领取
+      const user = await manager.findOne(User, {
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) {
+        throw new NotFoundException('用户不存在');
+      }
+
+      // 查找优惠券定义（锁定行，防止并发超发）
       const coupon = await manager.findOne(Coupon, {
         where: { id: couponId, isDeleted: false, canbuy: true },
+        lock: { mode: 'pessimistic_write' },
       });
       if (!coupon) {
         throw new NotFoundException('优惠券不存在或已下架');
