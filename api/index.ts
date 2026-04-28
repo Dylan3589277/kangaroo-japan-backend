@@ -1,19 +1,19 @@
 // Vercel serverless entry point with NestJS
-import serverlessHttp from 'serverless-http';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import express, { Application } from 'express';
+import express, { Application, Request, Response } from 'express';
 
-let cachedHandler: any;
-let initPromise: Promise<any>;
+let cachedApp: Application | null = null;
+let initPromise: Promise<Application> | null = null;
 
-async function initHandler() {
-  if (cachedHandler) return cachedHandler;
+async function initExpressApp(): Promise<Application> {
+  if (cachedApp) return cachedApp;
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    const app = await NestFactory.create(AppModule, new ExpressAdapter(express()), {
+    const expressApp = express();
+    const app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp), {
       rawBody: true,
     });
 
@@ -30,31 +30,29 @@ async function initHandler() {
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language', 'stripe-signature'],
     });
 
-    // Set global prefix to match main.ts
-    app.setGlobalPrefix('api/v1');
+    // Do not set a global prefix here. Controllers already include "api/v1"
+    // in their @Controller() decorators, matching src/main.ts. Setting it here
+    // would make Vercel routes become /api/v1/api/v1/... and break production APIs.
 
     await app.init();
-    
-    const expressApp = app.getHttpAdapter().getInstance() as Application;
-    cachedHandler = serverlessHttp(expressApp);
-    return cachedHandler;
+
+    cachedApp = expressApp;
+    return expressApp;
   })();
 
   return initPromise;
 }
 
-export default async function handler(event: any, context: any) {
+export default async function handler(req: Request, res: Response) {
   try {
-    const h = await initHandler();
-    return h(event, context);
-  } catch (error: any) {
+    const app = await initExpressApp();
+    return app(req, res);
+  } catch (error: unknown) {
     console.error('Handler error:', error);
-    return {
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return res.status(500).json({
       statusCode: 500,
-      body: JSON.stringify({
-        statusCode: 500,
-        message: error.message || 'Internal server error',
-      }),
-    };
+      message,
+    });
   }
 }

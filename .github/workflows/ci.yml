@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend test and build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: kangaroo
+          POSTGRES_PASSWORD: kangaroo_dev_password
+          POSTGRES_DB: kangaroo_japan
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U kangaroo -d kangaroo_japan"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      NODE_ENV: test
+      PORT: 3001
+      DATABASE_HOST: localhost
+      DATABASE_PORT: 5432
+      DATABASE_USER: kangaroo
+      DATABASE_PASSWORD: kangaroo_dev_password
+      DATABASE_NAME: kangaroo_japan
+      DATABASE_SYNC: "false"
+      DATABASE_MIGRATIONS_RUN: "false"
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_SECRET: ci_jwt_secret
+      JWT_REFRESH_SECRET: ci_jwt_refresh_secret
+      FRONTEND_URL: http://localhost:3000
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test -- --runInBand
+
+      - name: Build
+        run: npm run build
